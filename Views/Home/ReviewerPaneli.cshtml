@@ -1,0 +1,43 @@
+@model List<User>
+
+@{
+    ViewData["Title"] = "Reviewer Paneli";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Size Atanan Akademisyenler</h2>
+    <span class="badge bg-secondary fs-6">Toplam İncelenen Faaliyet: @ViewBag.TotalReviewed</span>
+</div>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Kullanıcı Adı</th>
+            <th>E-posta</th>
+            <th>İnceleme Bekleyen Faaliyet</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var academician in Model)
+        {
+            var pendingCount = ((Dictionary<string, int>)ViewBag.PendingCounts)[academician.Id];
+
+            <tr style="cursor: pointer;" onclick="location.href='@Url.Action("AcademicianActivities", "Review", new { academicianId = academician.Id })'">
+                <td>@academician.UserName</td>
+                <td>@academician.Email</td>
+                <td>
+                    @if (pendingCount > 0)
+                    {
+                        <span class="badge bg-warning text-dark">@pendingCount</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">0</span>
+                    }
+                </td>
+                <td><a asp-controller="Review" asp-action="AcademicianActivities" asp-route-academicianId="@academician.Id" class="btn btn-sm btn-outline-primary">Faaliyetleri Gör</a></td>
+            </tr>
+        }
+    </tbody>
+</table>

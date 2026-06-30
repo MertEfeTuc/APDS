@@ -1,0 +1,63 @@
+@model IEnumerable<APDS.Models.Activity>
+
+@{
+    ViewData["Title"] = "İnceleme Bekleyen Faaliyetler";
+    string academicianName = ViewBag.AcademicianName ?? "Akademisyen";
+}
+
+<div class="container mt-4">
+    <h4>@academicianName — Faaliyetleri</h4>
+    <hr />
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">Bu akademisyene ait incelenecek faaliyet bulunamadı.</div>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Başlık</th>
+                    <th>Tür</th>
+                    <th>Tarih</th>
+                    <th>Durum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var activity in Model)
+                {
+                    <tr>
+                        <td>@activity.Title</td>
+                        <td>@activity.ActivityType?.Name</td>
+                        <td>@activity.ActivityDate.ToString("dd.MM.yyyy")</td>
+                        <td>
+                            <span class="badge bg-@GetBadgeColor(activity.Status)">
+                                @activity.Status
+                            </span>
+                        </td>
+                        <td>
+                            <a asp-controller="Review" asp-action="ReviewActivity" asp-route-id="@activity.Id"
+                               class="btn btn-sm btn-outline-primary">İncele</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <a asp-controller="Home" asp-action="ReviewerPaneli" class="btn btn-secondary mt-2">← Geri</a>
+</div>
+
+@functions {
+    string GetBadgeColor(ActivityStatus status) => status switch
+    {
+        ActivityStatus.SUBMITTED       => "warning",
+        ActivityStatus.UNDER_REVIEW    => "info",
+        ActivityStatus.APPROVED        => "success",
+        ActivityStatus.REJECTED        => "danger",
+        ActivityStatus.REVISION_REQUESTED => "secondary",
+        _                              => "light"
+    };
+}

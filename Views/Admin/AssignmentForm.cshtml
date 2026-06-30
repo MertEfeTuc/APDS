@@ -1,0 +1,36 @@
+@model APDS.Models.Admin.ReviewerAssignmentViewModel
+
+@{
+    ViewData["Title"] = Model.Id == null ? "Yeni Atama" : "Atamayı Düzenle";
+}
+<a asp-controller="Admin" asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">
+    ← Panele Dön
+</a>
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <h2 class="mb-4">@ViewData["Title"]</h2>
+
+        <form asp-action="@(Model.Id == null ? "CreateAssignment" : "EditAssignment")" method="post">
+            <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+            <input type="hidden" asp-for="Id" />
+
+            <div class="mb-3">
+                <label asp-for="AcademicianId" class="form-label">Akademisyen</label>
+                <select asp-for="AcademicianId" asp-items="Model.Academicians" class="form-select">
+                    <option value="">-- Seçin --</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ReviewerId" class="form-label">Reviewer</label>
+                <select asp-for="ReviewerId" asp-items="Model.Reviewers" class="form-select">
+                    <option value="">-- Seçin --</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <a asp-action="Assignments" class="btn btn-secondary">Vazgeç</a>
+        </form>
+    </div>
+</div>

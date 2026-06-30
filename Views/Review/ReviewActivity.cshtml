@@ -1,0 +1,98 @@
+@model APDS.Models.Activity
+
+@{
+    ViewData["Title"] = "Faaliyet İncele";
+    var existingReview = ViewBag.ExistingReview as APDS.Models.Review;
+}
+
+<div class="container mt-4">
+    <h4>Faaliyet İnceleme</h4>
+    <hr />
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">@Model.Title</h5>
+            <p class="text-muted">@Model.ActivityType?.Name</p>
+            <hr />
+            <dl class="row">
+                <dt class="col-sm-3">Açıklama</dt>
+                <dd class="col-sm-9">@Model.Description</dd>
+
+                <dt class="col-sm-3">Tarih</dt>
+                <dd class="col-sm-9">@Model.ActivityDate.ToString("dd.MM.yyyy")</dd>
+
+                <dt class="col-sm-3">Akademisyen</dt>
+                <dd class="col-sm-9">@Model.Academician?.UserName</dd>
+
+                <dt class="col-sm-3">Mevcut Durum</dt>
+                <dd class="col-sm-9">
+                    <span class="badge bg-secondary">@Model.Status</span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    @if (existingReview != null)
+    {
+        <div class="alert alert-info">
+            Bu faaliyet için daha önce <strong>@existingReview.Decision</strong> kararı verdiniz
+            (@existingReview.ReviewDate.ToString("dd.MM.yyyy HH:mm")).
+            Aşağıdan kararınızı güncelleyebilirsiniz.
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    <div class="card">
+        <div class="card-header">Karar Ver</div>
+        <div class="card-body">
+            <form asp-controller="Review" asp-action="SubmitReview" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="activityId" value="@Model.Id" />
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Karar</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="decision"
+                                   value="@((int)ActivityStatus.APPROVED)"
+                                   id="approved"
+                                   @(existingReview?.Decision == ActivityStatus.APPROVED ? "checked" : "")>
+                            <label class="form-check-label text-success fw-bold" for="approved">Onayla</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="decision"
+                                   value="@((int)ActivityStatus.REJECTED)"
+                                   id="rejected"
+                                   @(existingReview?.Decision == ActivityStatus.REJECTED ? "checked" : "")>
+                            <label class="form-check-label text-danger fw-bold" for="rejected">Reddet</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="decision"
+                                   value="@((int)ActivityStatus.REVISION_REQUESTED)"
+                                   id="revision"
+                                   @(existingReview?.Decision == ActivityStatus.REVISION_REQUESTED ? "checked" : "")>
+                            <label class="form-check-label text-warning fw-bold" for="revision">Revizyon İste</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="comment" class="form-label fw-bold">Yorum <span class="text-muted fw-normal">(isteğe bağlı)</span></label>
+                    <textarea class="form-control" id="comment" name="comment" rows="4"
+                              placeholder="Kararınıza dair not ekleyebilirsiniz...">@existingReview?.Comment</textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Kararı Kaydet</button>
+                    <a asp-controller="Review" asp-action="AcademicianActivities"
+                       asp-route-academicianId="@Model.AcademicianId"
+                       class="btn btn-outline-secondary">← Geri</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

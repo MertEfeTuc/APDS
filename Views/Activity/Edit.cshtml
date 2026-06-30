@@ -1,0 +1,96 @@
+@model APDS.Models.ActivityEditViewModel
+@using Newtonsoft.Json
+
+@{
+    ViewData["Title"] = "Faaliyet Düzenle";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <h2 class="mb-4">Faaliyet Düzenle</h2>
+
+        <form asp-controller="Activity" asp-action="Edit" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <input type="hidden" asp-for="Id" />
+
+            <div class="mb-3">
+                <label class="form-label">Kategori</label>
+                <select id="categorySelect" class="form-select">
+                    <option value="">-- Kategori Seçin --</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ActivityTypeId" class="form-label">Faaliyet Türü</label>
+                <select asp-for="ActivityTypeId" id="activityTypeSelect" class="form-select">
+                    <option value="">-- Önce kategori seçin --</option>
+                </select>
+                <span asp-validation-for="ActivityTypeId" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label"></label>
+                <input asp-for="Title" class="form-control" />
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label"></label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ActivityDate" class="form-label"></label>
+                <input asp-for="ActivityDate" type="date" class="form-control" />
+                <span asp-validation-for="ActivityDate" class="text-danger"></span>
+             </div>
+
+            <button type="submit" name="submitType" value="save" class="btn btn-primary">Kaydet</button>
+            <button type="submit" name="submitType" value="submit" class="btn btn-success">Gönder</button>
+            <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Vazgeç</a>
+        </form>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+
+    <script>
+    const allActivityTypes = @Html.Raw(JsonConvert.SerializeObject(Model.AllActivityTypes));
+    const selectedActivityTypeId = @Model.ActivityTypeId;
+
+    const categorySelect = document.getElementById('categorySelect');
+    const activityTypeSelect = document.getElementById('activityTypeSelect');
+
+    const categories = [...new Set(allActivityTypes.map(t => t.Category))];
+    categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        categorySelect.appendChild(opt);
+    });
+
+    function fillActivityTypes(category) {
+        activityTypeSelect.innerHTML = '<option value="">-- Tür Seçin --</option>';
+        const filtered = allActivityTypes.filter(t => t.Category === category);
+        filtered.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.Id;
+            opt.textContent = `${t.Name} (${t.Score} puan)`;
+            activityTypeSelect.appendChild(opt);
+        });
+    }
+
+    categorySelect.addEventListener('change', function () {
+        fillActivityTypes(this.value);
+    });
+
+    // Sayfa yüklendiğinde mevcut faaliyetin kategori/türünü önceden seçili getir
+    const currentType = allActivityTypes.find(t => t.Id === selectedActivityTypeId);
+    if (currentType) {
+        categorySelect.value = currentType.Category;
+        fillActivityTypes(currentType.Category);
+        activityTypeSelect.value = selectedActivityTypeId;
+    }
+</script>
+}

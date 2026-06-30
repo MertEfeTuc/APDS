@@ -1,0 +1,45 @@
+@model APDS.Models.AdminEditUserViewModel
+
+@{
+    ViewData["Title"] = "Kullanıcıyı Düzenle";
+}
+
+<a asp-action="Users" class="btn btn-sm btn-outline-secondary mb-3">← Kullanıcılara Dön</a>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">Kullanıcıyı Düzenle</h2>
+
+        <p class="text-muted">Rol: <strong>@Model.CurrentRole</strong> (bu ekrandan değiştirilemez)</p>
+
+        <form asp-action="EditUser" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <input type="hidden" asp-for="Id" />
+
+            <div class="mb-3">
+                <label asp-for="Username" class="form-label"></label>
+                <input asp-for="Username" class="form-control" />
+                <span asp-validation-for="Username" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="NewPassword" class="form-label"></label>
+                <input asp-for="NewPassword" type="password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="NewPassword" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

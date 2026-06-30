@@ -1,0 +1,44 @@
+@model List<APDS.Models.ActivityType>
+
+@{
+    ViewData["Title"] = "Faaliyet Türleri";
+}
+
+<a asp-controller="Admin" asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">← Panele Dön</a>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Faaliyet Türleri</h2>
+    <a asp-action="CreateActivityType" class="btn btn-primary">+ Yeni Tür Ekle</a>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Kategori</th>
+            <th>Faaliyet Adı</th>
+            <th>Puan</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var type in Model)
+        {
+            <tr>
+                <td>@type.Category</td>
+                <td>@type.Name</td>
+                <td>@type.Score</td>
+                <td>
+                    <a asp-action="EditActivityType" asp-route-id="@type.Id" class="btn btn-sm btn-outline-primary">Düzenle</a>
+                    <form asp-action="DeleteActivityType" asp-route-id="@type.Id" method="post" style="display:inline;" onsubmit="return confirm('Bu faaliyet türünü silmek istediğinize emin misiniz?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

@@ -1,0 +1,36 @@
+@model APDS.Models.Activity
+
+<h2>@Model.Title</h2>
+
+<dl class="row">
+    <dt class="col-sm-3">Kategori</dt>
+    <dd class="col-sm-9">@Model.ActivityType.Category</dd>
+
+    <dt class="col-sm-3">Tür</dt>
+    <dd class="col-sm-9">@Model.ActivityType.Name</dd>
+
+    <dt class="col-sm-3">Tarih</dt>
+    <dd class="col-sm-9">@Model.ActivityDate.ToString("dd.MM.yyyy")</dd>
+
+    <dt class="col-sm-3">Açıklama</dt>
+    <dd class="col-sm-9">@Model.Description</dd>
+
+    <dt class="col-sm-3">Akademisyen</dt>
+    <dd class="col-sm-9">@Model.Academician.UserName</dd>
+
+    <dt class="col-sm-3">Durum</dt>
+    <dd class="col-sm-9">@Model.Status</dd>
+</dl>
+
+@if (ViewBag.CanEdit)
+{
+    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Düzenle</a>
+
+    <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
+          onsubmit="return confirm('Bu faaliyeti silmek istediğinize emin misiniz?');">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-danger">Sil</button>
+    </form>
+}
+
+<a asp-action="Index" class="btn btn-secondary">Geri</a>

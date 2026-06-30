@@ -1,0 +1,42 @@
+@model APDS.Models.DepartmentFormViewModel
+
+@{
+    ViewData["Title"] = Model.Id == null ? "Yeni Bölüm" : "Bölümü Düzenle";
+}
+
+<a asp-action="FacultiesAndDepartments" class="btn btn-sm btn-outline-secondary mb-3">← Listeye Dön</a>
+
+<h2 class="mb-4">@(Model.Id == null ? "Yeni Bölüm Ekle" : "Bölümü Düzenle")</h2>
+
+<form asp-action="@(Model.Id == null ? "CreateDepartment" : "EditDepartment")" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    @if (Model.Id != null)
+    {
+        <input type="hidden" asp-for="Id" />
+    }
+
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="FacultyId" class="form-label"></label>
+        <select asp-for="FacultyId" class="form-select">
+            <option value="">-- Fakülte Seçin --</option>
+            @foreach (var faculty in Model.AllFaculties)
+            {
+                <option value="@faculty.Id">@faculty.Name</option>
+            }
+        </select>
+        <span asp-validation-for="FacultyId" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+</form>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

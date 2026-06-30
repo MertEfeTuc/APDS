@@ -1,0 +1,48 @@
+@model APDS.Models.ActivityTypeFormViewModel
+
+@{
+    ViewData["Title"] = Model.Id == null ? "Yeni Faaliyet Türü" : "Faaliyet Türünü Düzenle";
+}
+
+<a asp-action="ActivityTypes" class="btn btn-sm btn-outline-secondary mb-3">← Listeye Dön</a>
+
+<h2 class="mb-4">@(Model.Id == null ? "Yeni Faaliyet Türü Ekle" : "Faaliyet Türünü Düzenle")</h2>
+
+<form asp-action="@(Model.Id == null ? "CreateActivityType" : "EditActivityType")" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    @if (Model.Id != null)
+    {
+        <input type="hidden" asp-for="Id" />
+    }
+
+    <div class="mb-3">
+        <label asp-for="Category" class="form-label"></label>
+        <input asp-for="Category" class="form-control" list="categoryOptions" placeholder="Yayınlar / Projeler / Patentler / Tezler / Yeni Kategori" />
+        <datalist id="categoryOptions">
+            @foreach (var cat in Model.ExistingCategories)
+            {
+                <option value="@cat"></option>
+            }
+        </datalist>
+        <span asp-validation-for="Category" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Score" class="form-label"></label>
+        <input asp-for="Score" type="number" class="form-control" />
+        <span asp-validation-for="Score" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+</form>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

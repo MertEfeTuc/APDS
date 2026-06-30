@@ -1,0 +1,81 @@
+@model APDS.Models.AdminCreateUserViewModel
+
+@{
+    ViewData["Title"] = "Yeni Kullanıcı Oluştur";
+}
+
+<a asp-action="Users" class="btn btn-sm btn-outline-secondary mb-3">← Kullanıcılara Dön</a>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">Yeni Kullanıcı Oluştur</h2>
+
+        <form asp-action="CreateUser" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Username" class="form-label"></label>
+                <input asp-for="Username" class="form-control" autocomplete="off" />
+                <span asp-validation-for="Username" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" autocomplete="off" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" type="password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label d-block">Kullanıcı Türü</label>
+
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="SelectedRole" id="roleAkademisyen" value="Akademisyen" checked />
+                    <label class="form-check-label" for="roleAkademisyen">Akademisyen</label>
+                </div>
+
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="SelectedRole" id="roleReviewer" value="Reviewer" />
+                    <label class="form-check-label" for="roleReviewer">Reviewer</label>
+                </div>
+
+                <span asp-validation-for="SelectedRole" class="text-danger"></span>
+                <div class="mb-3" id="departmentField">
+    <label asp-for="DepartmentId" class="form-label"></label>
+    <select asp-for="DepartmentId" class="form-select">
+        <option value="">-- Bölüm Seçin --</option>
+        @foreach (var dept in Model.AllDepartments)
+        {
+            <option value="@dept.Id">@dept.Faculty.Name - @dept.Name</option>
+        }
+    </select>
+    <span asp-validation-for="DepartmentId" class="text-danger"></span>
+</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Oluştur</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <script>
+    function toggleDepartmentField() {
+        const selectedRole = document.querySelector('input[name="SelectedRole"]:checked').value;
+        const departmentField = document.getElementById('departmentField');
+        departmentField.style.display = selectedRole === 'Akademisyen' ? 'block' : 'none';
+    }
+
+    document.querySelectorAll('input[name="SelectedRole"]').forEach(radio => {
+        radio.addEventListener('change', toggleDepartmentField);
+    });
+
+    toggleDepartmentField();
+</script>
+}

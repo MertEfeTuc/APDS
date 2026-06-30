@@ -1,0 +1,85 @@
+@model APDS.Models.AdminDashboardViewModel
+
+@{
+    ViewData["Title"] = "Admin Paneli";
+}
+
+<h2 class="mb-4">Admin Paneli</h2>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Toplam Kullanıcı</h6>
+                <h3 class="card-title">@Model.TotalUsers</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Akademisyen Sayısı</h6>
+                <h3 class="card-title">@Model.TotalAcademicians</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Reviewer Sayısı</h6>
+                <h3 class="card-title">@Model.TotalReviewers</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Bekleyen Faaliyet</h6>
+                <h3 class="card-title text-warning">@Model.PendingActivitiesCount</h3>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Kullanıcılar</h5>
+                <p class="card-text">Tüm kullanıcıları ve rollerini görüntüle.</p>
+                <a asp-action="Users" class="btn btn-primary">Görüntüle</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Reviewer Atamaları</h5>
+                <p class="card-text">Akademisyenlere reviewer ata, mevcut atamaları yönet.</p>
+                <a asp-action="Assignments" class="btn btn-primary">Görüntüle</a>
+            </div>
+        </div>
+    </div>
+     <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Faaliyet Türleri</h5>
+                <p class="card-text">Faaliyet yönet, yeni kategori veya Faaliyet oluştur</p>
+                <a asp-action="ActivityTypes" class="btn btn-outline-dark">Faaliyet Türleri</a>
+                
+            </div>
+        </div>
+    </div>
+</div>
+        <div class="row g-4">
+        <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Fakülte/Departman</h5>
+                <p class="card-text">Fakülte ve Departmanları yönet</p>
+                <a asp-action="FacultiesAndDepartments" class="btn btn-outline-dark">Fakülteler ve Bölümler</a>
+            </div>
+        </div>
+    </div>
+</div>
+

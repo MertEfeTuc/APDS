@@ -1,0 +1,57 @@
+@model List<APDS.Models.Faculty>
+
+@{
+    ViewData["Title"] = "Fakülteler ve Bölümler";
+}
+
+<a asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">← Panele Dön</a>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Fakülteler ve Bölümler</h2>
+    <div>
+        <a asp-action="CreateFaculty" class="btn btn-outline-primary">+ Yeni Fakülte</a>
+        <a asp-action="CreateDepartment" class="btn btn-primary">+ Yeni Bölüm</a>
+    </div>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+@foreach (var faculty in Model)
+{
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>@faculty.Name</strong>
+            <div>
+                <a asp-action="EditFaculty" asp-route-id="@faculty.Id" class="btn btn-sm btn-outline-primary">Düzenle</a>
+                <form asp-action="DeleteFaculty" asp-route-id="@faculty.Id" method="post" style="display:inline;" onsubmit="return confirm('Bu fakülteyi silmek istediğinize emin misiniz?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                </form>
+            </div>
+        </div>
+
+        @if (!faculty.Departments.Any())
+        {
+            <div class="card-body text-muted">Bu fakülteye henüz bölüm eklenmemiş.</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var department in faculty.Departments)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        @department.Name
+                        <div>
+                            <a asp-action="EditDepartment" asp-route-id="@department.Id" class="btn btn-sm btn-outline-primary">Düzenle</a>
+                            <form asp-action="DeleteDepartment" asp-route-id="@department.Id" method="post" style="display:inline;" onsubmit="return confirm('Bu bölümü silmek istediğinize emin misiniz?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
