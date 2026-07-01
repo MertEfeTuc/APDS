@@ -14,7 +14,9 @@ public class ApplicationDbContext : IdentityDbContext<User>
     public DbSet<Faculty> Faculties { get; set; }
     public DbSet<Department> Departments { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
-
+    public DbSet<ActivityVersion> ActivityVersions { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<ActivityAttachment> ActivityAttachments { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);   // Identity tablolarının kurulumu için zorunlu, bunu silme
@@ -49,7 +51,42 @@ public class ApplicationDbContext : IdentityDbContext<User>
             .HasOne(u => u.Department)
             .WithMany()
             .HasForeignKey(u => u.DepartmentId)
-            .OnDelete(DeleteBehavior.SetNull);   
+            .OnDelete(DeleteBehavior.SetNull);  
+        builder.Entity<ActivityVersion>()
+            .HasOne(av => av.Activity)
+            .WithMany()
+            .HasForeignKey(av => av.ActivityId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(n => n.User)
+            .WithMany()
+            .HasForeignKey(n => n.UserId)
+            .OnDelete(DeleteBehavior.Restrict); 
+
+        builder.Entity<ActivityAttachment>()
+            .HasOne(a => a.Activity)
+            .WithMany()
+            .HasForeignKey(a => a.ActivityId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ActivityAttachment>()
+            .HasOne(a => a.UploadedBy)
+            .WithMany()
+            .HasForeignKey(a => a.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Activity>()
+    .HasOne(a => a.DelegatedReviewer)
+    .WithMany()
+    .HasForeignKey(a => a.DelegatedReviewerId)
+    .OnDelete(DeleteBehavior.Restrict);
+    builder.Entity<Activity>()
+    .HasOne(a => a.PendingDelegationReviewer)
+    .WithMany()
+    .HasForeignKey(a => a.PendingDelegationReviewerId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+       
             }
             
 }

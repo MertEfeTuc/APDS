@@ -1,0 +1,72 @@
+@model List<APDS.Models.ActivityVersion>
+@{
+    var activity = (APDS.Models.Activity)ViewBag.Activity;
+    ViewData["Title"] = "Versiyon Geçmişi";
+}
+
+<h2>Versiyon Geçmişi — @activity.Title</h2>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Bu faaliyet için henüz bir versiyon geçmişi yok (faaliyet hiç düzenlenmedi).</p>
+}
+else
+{
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Versiyon</th>
+                <th>Tarih</th>
+                <th>Sebep</th>
+                <th>Durum (o anki)</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var v in Model)
+            {
+                <tr>
+                    <td>@v.VersionNumber</td>
+                    <td>@v.SnapshotDate.ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@v.SnapshotReason</td>
+                    <td>@v.Status</td>
+                    <td>
+                        <a asp-action="CompareVersions" asp-route-activityId="@activity.Id" asp-route-oldVersionId="@v.Id"
+                           class="btn btn-sm btn-outline-primary">Güncel Hal ile Karşılaştır</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Model.Count > 1)
+    {
+        <h5 class="mt-4">İki Versiyonu Karşılaştır</h5>
+        <form asp-action="CompareVersions" method="get" class="row g-2 align-items-end">
+            <input type="hidden" name="activityId" value="@activity.Id" />
+            <div class="col-auto">
+                <label class="form-label">Eski Versiyon</label>
+                <select name="oldVersionId" class="form-select">
+                    @foreach (var v in Model)
+                    {
+                        <option value="@v.Id">Versiyon @v.VersionNumber (@v.SnapshotDate.ToString("dd.MM.yyyy HH:mm"))</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Yeni Versiyon</label>
+                <select name="newVersionId" class="form-select">
+                    @foreach (var v in Model)
+                    {
+                        <option value="@v.Id">Versiyon @v.VersionNumber (@v.SnapshotDate.ToString("dd.MM.yyyy HH:mm"))</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Karşılaştır</button>
+            </div>
+        </form>
+    }
+}
+
+<a asp-action="Details" asp-route-id="@activity.Id" class="btn btn-secondary mt-3">Geri</a>

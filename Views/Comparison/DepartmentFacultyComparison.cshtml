@@ -1,0 +1,54 @@
+@{
+    ViewData["Title"] = "Bölüm / Fakülte Karşılaştırması";
+
+    var facultyStats = ViewBag.FacultyStats as IEnumerable<dynamic>;
+    var departmentStats = ViewBag.DepartmentStats as IEnumerable<dynamic>;
+    int? myDepartmentId = ViewBag.MyDepartmentId;
+    int? myFacultyId = ViewBag.MyFacultyId;
+}
+
+<h2 class="mb-4">Bölüm / Fakülte Karşılaştırması (Ortalama Puan)</h2>
+
+<h4>Fakülte Bazında</h4>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Fakülte</th>
+            <th>Akademisyen Sayısı</th>
+            <th>Ortalama Puan</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var f in facultyStats)
+        {
+            <tr class="@(myFacultyId.HasValue && f.FacultyId == myFacultyId ? "table-primary" : "")">
+                <td>@f.FacultyName @(myFacultyId.HasValue && f.FacultyId == myFacultyId ? " (Sizin Fakülteniz)" : "")</td>
+                <td>@f.AcademicianCount</td>
+                <td>@f.AverageScore</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4 class="mt-5">Bölüm Bazında</h4>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Bölüm</th>
+            <th>Fakülte</th>
+            <th>Akademisyen Sayısı</th>
+            <th>Ortalama Puan</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var d in departmentStats)
+        {
+            <tr class="@(myDepartmentId.HasValue && d.DepartmentId == myDepartmentId ? "table-primary" : "")">
+                <td>@d.DepartmentName @(myDepartmentId.HasValue && d.DepartmentId == myDepartmentId ? " (Sizin Bölümünüz)" : "")</td>
+                <td>@d.FacultyName</td>
+                <td>@d.AcademicianCount</td>
+                <td>@d.AverageScore</td>
+            </tr>
+        }
+    </tbody>
+</table>

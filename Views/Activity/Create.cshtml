@@ -1,15 +1,19 @@
 @model APDS.Models.ActivityCreateViewModel
 @using Newtonsoft.Json
-
+@Html.AntiForgeryToken()
 @{
     ViewData["Title"] = "Faaliyet Ekle";
+    var currentTotal = (int)ViewBag.CurrentTotal;
 }
 
 <div class="row justify-content-center mt-4">
     <div class="col-md-6">
         <h2 class="mb-4">Yeni Faaliyet Ekle</h2>
 
-        <form asp-controller="Activity" asp-action="Create" method="post">
+        <form asp-controller="Activity" asp-action="Create" method="post" enctype="multipart/form-data">
+            <input type="hidden" id="activityId" asp-for="Id" />
+            <small id="autoSaveStatus" class="text-muted d-block mb-2"></small>
+
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
             <div class="mb-3">
@@ -27,6 +31,12 @@
                 <span asp-validation-for="ActivityTypeId" class="text-danger"></span>
             </div>
 
+            <div class="alert alert-info mt-2" id="scorePreviewBox">
+                Bu faaliyet onaylanırsa toplam puanınız:
+                <strong id="simulatedTotal">@currentTotal</strong>
+                <span class="text-muted">(şu an: @currentTotal)</span>
+            </div>
+
             <div class="mb-3">
                 <label asp-for="Title" class="form-label"></label>
                 <input asp-for="Title" class="form-control" />
@@ -39,44 +49,89 @@
             </div>
 
             <div class="mb-3">
-    <label asp-for="ActivityDate" class="form-label"></label>
-    <input asp-for="ActivityDate" type="date" class="form-control "value="@DateTime.Now.ToString("yyyy-MM-dd")" />
-    
-    <span asp-validation-for="ActivityDate" class="text-danger"></span>
-          </div>
+                <label asp-for="ActivityDate" class="form-label"></label>
+                <input asp-for="ActivityDate" type="date" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                <span asp-validation-for="ActivityDate" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Kanıt Belgeleri (PDF, görsel, docx vb.)</label>
+                <input type="file" name="files" class="form-control" multiple />
+                <small class="text-muted">Faaliyet sayısal türüne göre 10 MB sınırına dikkat edin.</small>
+            </div>
 
             <button type="submit" name="submitType" value="draft" class="btn btn-outline-secondary">Kaydet</button>
             <button type="submit" name="submitType" value="submit" class="btn btn-primary">Gönder</button>
         </form>
     </div>
 </div>
+
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 
     <script>
-    const allActivityTypes = @Html.Raw(JsonConvert.SerializeObject(Model.AllActivityTypes));
+        let autoSaveActivityId = document.getElementById('activityId').value || null;
 
-    const categorySelect = document.getElementById('categorySelect');
-    const activityTypeSelect = document.getElementById('activityTypeSelect');
+        function collectFormData() {
+            const fd = new FormData();
+            fd.append('id', autoSaveActivityId ?? '');
+            fd.append('title', document.querySelector('[name="Title"]').value);
+            fd.append('description', document.querySelector('[name="Description"]').value);
+            fd.append('activityDate', document.querySelector('[name="ActivityDate"]').value);
+            fd.append('activityTypeId', document.getElementById('activityTypeSelect').value);
+            fd.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+            return fd;
+        }
 
-    const categories = [...new Set(allActivityTypes.map(t => t.Category))];
-    categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        categorySelect.appendChild(opt);
-    });
+        async function autoSave() {
+            const res = await fetch('/Activity/AutoSave', { method: 'POST', body: collectFormData() });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.id) {
+                autoSaveActivityId = data.id;
+                document.getElementById('activityId').value = data.id;
+                document.getElementById('autoSaveStatus').textContent = `Son otomatik kayıt: ${data.savedAt}`;
+            }
+        }
 
-    categorySelect.addEventListener('change', function () {
-        activityTypeSelect.innerHTML = '<option value="">-- Tür Seçin --</option>';
+        setInterval(autoSave, 12000);
 
-        const filtered = allActivityTypes.filter(t => t.Category === this.value);
-        filtered.forEach(t => {
+        const allActivityTypes = @Html.Raw(JsonConvert.SerializeObject(Model.AllActivityTypes));
+        const currentTotal = @currentTotal;
+
+        const categorySelect = document.getElementById('categorySelect');
+        const activityTypeSelect = document.getElementById('activityTypeSelect');
+        const simulatedTotalEl = document.getElementById('simulatedTotal');
+
+        const categories = [...new Set(allActivityTypes.map(t => t.Category))];
+        categories.forEach(cat => {
             const opt = document.createElement('option');
-            opt.value = t.Id;
-            opt.textContent = `${t.Name} (${t.Score} puan)`;
-            activityTypeSelect.appendChild(opt);
+            opt.value = cat;
+            opt.textContent = cat;
+            categorySelect.appendChild(opt);
         });
-    });
-</script>
+
+        categorySelect.addEventListener('change', function () {
+            activityTypeSelect.innerHTML = '<option value="">-- Tür Seçin --</option>';
+
+            const filtered = allActivityTypes.filter(t => t.Category === this.value);
+            filtered.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.Id;
+                opt.textContent = `${t.Name} (${t.Score} puan)`;
+                activityTypeSelect.appendChild(opt);
+            });
+
+            updatePreview();
+        });
+
+        function updatePreview() {
+            const selectedId = parseInt(activityTypeSelect.value);
+            const match = allActivityTypes.find(t => t.Id === selectedId);
+            const addedScore = match ? match.Score : 0;
+            simulatedTotalEl.innerText = currentTotal + addedScore;
+        }
+
+        activityTypeSelect.addEventListener('change', updatePreview);
+    </script>
 }

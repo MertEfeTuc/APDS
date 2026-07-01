@@ -12,48 +12,156 @@ namespace APDS.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly APDS.Services.AuditLogService _auditLog;
+        private readonly APDS.Services.Notifications.INotificationPublisher _notificationPublisher;
+        private readonly APDS.Services.FileStorageSettings _fileStorage;
+        private readonly IWebHostEnvironment _env;
 
-       public ActivityController(ApplicationDbContext context, UserManager<User> userManager, APDS.Services.AuditLogService auditLog)
-        {
-            _context = context;
-            _userManager = userManager;
-            _auditLog = auditLog;
-        }
+       public ActivityController(ApplicationDbContext context, UserManager<User> userManager,
+    APDS.Services.AuditLogService auditLog, APDS.Services.Notifications.INotificationPublisher notificationPublisher,
+    Microsoft.Extensions.Options.IOptions<APDS.Services.FileStorageSettings> fileStorageOptions,
+    IWebHostEnvironment env)
+{
+    _context = context;
+    _userManager = userManager;
+    _auditLog = auditLog;
+    _notificationPublisher = notificationPublisher;
+    _fileStorage = fileStorageOptions.Value;
+    _env = env;
+}
 
         [HttpGet]
         public async Task<IActionResult> Create()
         {
+            var user = await _userManager.GetUserAsync(User);
+
+            var currentTotal = await _context.Activities
+                .Include(a => a.ActivityType)
+                .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+                .SumAsync(a => a.ActivityType.Score);
+
+            ViewBag.CurrentTotal = currentTotal;
             var model = new ActivityCreateViewModel
             {
                 AllActivityTypes = await _context.ActivityTypes.ToListAsync()
             };
             return View(model);
         }
+[HttpGet]
+public async Task<IActionResult> CopyFromActivity(int id)
+{
+    var source = await _context.Activities.FirstOrDefaultAsync(a => a.Id == id);
+    if (source == null) return NotFound();
 
+    var user = await _userManager.GetUserAsync(User);
+    if (source.AcademicianId != user.Id) return Forbid();
+
+    var model = new ActivityCreateViewModel
+    {
+        Title = $"{source.Title} (Kopya)",
+        Description = source.Description,
+        ActivityDate = source.ActivityDate,
+        ActivityTypeId = source.ActivityTypeId,
+        AllActivityTypes = await _context.ActivityTypes.ToListAsync()
+    };
+
+    return View("Create", model);
+}
         [HttpPost]
 [ValidateAntiForgeryToken]
-public async Task<IActionResult> Create(ActivityCreateViewModel model, string submitType)
+[RequestSizeLimit(50 * 1024 * 1024)] // toplamda makul bir üst sınır, her dosya kendi içinde 10 MB ile sınırlı
+public async Task<IActionResult> Create(ActivityCreateViewModel model, string submitType, List<IFormFile> files)
 {
     if (!ModelState.IsValid)
     {
         model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
         return View(model);
     }
-
+    var duplicate = await FindDuplicateAsync(model.Title, model.ActivityTypeId, null);
+if (duplicate != null)
+{
+    ModelState.AddModelError(string.Empty,
+        $"Bu başlık ve türde zaten bir faaliyet kayıtlı (ID: {duplicate.Id}). Mükerrer kayıt oluşturulamaz.");
+    model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+    return View(model);
+}
     var user = await _userManager.GetUserAsync(User);
 
-    var activity = new Activity
+    Activity activity;
+    if (model.Id.HasValue && model.Id.Value > 0)
     {
-        Title = model.Title,
-        Description = model.Description,
-        ActivityDate = model.ActivityDate,
-        ActivityTypeId = model.ActivityTypeId,
-        AcademicianId = user.Id,
-        Status = submitType == "submit" ? ActivityStatus.SUBMITTED : ActivityStatus.DRAFT
-    };
+        activity = await _context.Activities.FirstOrDefaultAsync(a => a.Id == model.Id.Value && a.AcademicianId == user.Id);
+        if (activity == null) return NotFound();
+    }
+    else
+    {
+        activity = new Activity { AcademicianId = user.Id };
+        _context.Activities.Add(activity);
+    }
 
-    _context.Activities.Add(activity);
+     activity.Title = model.Title;
+    activity.Description = model.Description;
+    activity.ActivityDate = model.ActivityDate;
+    activity.ActivityTypeId = model.ActivityTypeId;
+    activity.Status = submitType == "submit" ? ActivityStatus.SUBMITTED : ActivityStatus.DRAFT;
+    if (activity.Status == ActivityStatus.SUBMITTED)
+    {
+        activity.LastStatusChangeDate = DateTime.UtcNow;
+        activity.OverdueNotificationSent = false;
+    }
+
+    
+    if (!ModelState.IsValid)
+    {
+        model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+        return View(model);
+    }
+
+
+    
+
+// ---- Dosya yükleme (varsa) ----
+if (files != null && files.Any())
+{
+    var folder = GetActivityFolder(activity.Id);
+
+    foreach (var file in files)
+    {
+        if (file.Length == 0) continue;
+
+        if (file.Length > _fileStorage.MaxFileSizeBytes)
+        {
+            TempData["Error"] = $"\"{file.FileName}\" dosyası {_fileStorage.MaxFileSizeBytes / 1024 / 1024} MB sınırını aşıyor, yüklenmedi.";
+            continue;
+        }
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!_fileStorage.AllowedExtensions.Contains(ext))
+        {
+            TempData["Error"] = $"\"{file.FileName}\" türüne izin verilmiyor, yüklenmedi.";
+            continue;
+        }
+
+        var storedFileName = $"{Guid.NewGuid()}{ext}";
+        var fullPath = Path.Combine(folder, storedFileName);
+
+        using (var stream = new FileStream(fullPath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        _context.ActivityAttachments.Add(new ActivityAttachment
+        {
+            ActivityId = activity.Id,
+            OriginalFileName = file.FileName,
+            StoredFileName = storedFileName,
+            ContentType = file.ContentType,
+            FileSizeBytes = file.Length,
+            UploadedByUserId = user.Id
+        });
+    }
     await _context.SaveChangesAsync();
+    
+}
     await _auditLog.LogAsync("Activity", activity.Id.ToString(), "CREATE", user.UserName);
     return RedirectToAction("Index");
 }
@@ -86,9 +194,49 @@ public async Task<IActionResult> Details(int id)
         (activity.Status == ActivityStatus.DRAFT || activity.Status == ActivityStatus.REVISION_REQUESTED);
 
     ViewBag.CanEdit = canEdit;   // view'da butonları göstermek/gizlemek için
+    ViewBag.IsAuthor = isAuthor;   
+    ViewBag.Attachments = await _context.ActivityAttachments
+    .Where(a => a.ActivityId == id)
+    .OrderByDescending(a => a.UploadedDate)
+    .ToListAsync();
     return View(activity);
 }
+[HttpGet]
+public async Task<IActionResult> Performance()
+{
+    var user = await _userManager.GetUserAsync(User);
 
+    var approved = await _context.Activities
+        .Include(a => a.ActivityType)
+        .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+        .ToListAsync();
+
+    var years = approved
+        .Select(a => a.ActivityDate.Year)
+        .Distinct()
+        .OrderBy(y => y)
+        .ToList();
+
+    var categories = approved
+        .Select(a => a.ActivityType.Category)
+        .Distinct()
+        .OrderBy(c => c)
+        .ToList();
+
+    var datasets = categories.Select(cat => new
+    {
+        label = cat,
+        data = years.Select(y => approved
+            .Where(a => a.ActivityDate.Year == y && a.ActivityType.Category == cat)
+            .Sum(a => a.ActivityType.Score))
+            .ToList()
+    }).ToList();
+
+    ViewBag.Years = years;
+    ViewBag.Datasets = datasets;
+
+    return View();
+}
 [HttpGet]
 [Authorize(Roles = "Akademisyen")]
 public async Task<IActionResult> Edit(int id)
@@ -132,15 +280,44 @@ public async Task<IActionResult> Edit(ActivityEditViewModel model, string submit
     }
 
     var activity = await _context.Activities.FindAsync(model.Id);
+    
     if (activity == null)
         return NotFound();
-
+        
+var duplicate = await FindDuplicateAsync(model.Title, model.ActivityTypeId, activity.Id);
+if (duplicate != null)
+{
+    ModelState.AddModelError(string.Empty,
+        $"Bu başlık ve türde zaten bir faaliyet kayıtlı (ID: {duplicate.Id}). Mükerrer kayıt oluşturulamaz.");
+    model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+    return View(model);
+}
     var currentUser = await _userManager.GetUserAsync(User);
     if (activity.AcademicianId != currentUser.Id ||
         (activity.Status != ActivityStatus.DRAFT && activity.Status != ActivityStatus.REVISION_REQUESTED))
     {
         return Forbid();
     }
+var lastVersionNumber = await _context.ActivityVersions
+    .Where(v => v.ActivityId == activity.Id)
+    .Select(v => (int?)v.VersionNumber)
+    .MaxAsync() ?? 0;
+
+    _context.ActivityVersions.Add(new ActivityVersion
+    {
+        ActivityId = activity.Id,
+        VersionNumber = lastVersionNumber + 1,
+        Title = activity.Title,
+        Description = activity.Description,
+        ActivityDate = activity.ActivityDate,
+        Status = activity.Status,
+        ActivityTypeId = activity.ActivityTypeId,
+        JournalName = activity.JournalName,
+        FundingAgency = activity.FundingAgency,
+        PatentNumber = activity.PatentNumber,
+        ThesisNumber = activity.ThesisNumber,
+        SnapshotReason = activity.Status == ActivityStatus.REVISION_REQUESTED ? "RESUBMIT" : "EDIT"
+    });
 
     activity.Title = model.Title;
     activity.Description = model.Description;
@@ -154,12 +331,35 @@ public async Task<IActionResult> Edit(ActivityEditViewModel model, string submit
         activity.Status = activity.Status == ActivityStatus.REVISION_REQUESTED
             ? ActivityStatus.RESUBMITTED
             : ActivityStatus.SUBMITTED;
+        activity.LastStatusChangeDate = DateTime.UtcNow;
+        activity.OverdueNotificationSent = false;   
+        
     }
     // submitType == "save" ise Status değişmez, DRAFT/REVISION_REQUESTED olarak kalır
 
     await _context.SaveChangesAsync();
     await _auditLog.LogAsync("Activity", activity.Id.ToString(), "EDIT", currentUser.UserName);
-    return RedirectToAction("Details", new { id = activity.Id });
+ 
+
+// ---- Bildirim: yeniden gönderildiyse reviewer'a haber ver ----
+if (submitType == "submit")
+{
+    var assignment = await _context.ReviewerAssignments
+        .FirstOrDefaultAsync(a => a.AcademicianId == activity.AcademicianId);
+
+    if (assignment != null)
+    {
+        await _notificationPublisher.PublishAsync(new APDS.Events.ActivityStatusChangedEvent(
+            RecipientUserId: assignment.ReviewerId,
+            Type: NotificationType.ASSIGNMENT,
+            Message: $"{currentUser.UserName} bir faaliyeti gönderdi: \"{activity.Title}\"",
+            RelatedEntityId: activity.Id
+        ));
+    }
+}
+
+return RedirectToAction("Details", new { id = activity.Id });
+   
 }
 
 [HttpPost]
@@ -181,6 +381,264 @@ public async Task<IActionResult> Delete(int id)
     await _context.SaveChangesAsync();
     await _auditLog.LogAsync("Activity", id.ToString(), "DELETE", user.UserName);
     return RedirectToAction("Index");
+}
+
+[HttpGet]
+[Authorize(Roles = "Akademisyen,Reviewer")]
+public async Task<IActionResult> VersionHistory(int id)
+{
+    var activity = await _context.Activities
+        .Include(a => a.ActivityType)
+        .Include(a => a.Academician)
+        .FirstOrDefaultAsync(a => a.Id == id);
+
+    if (activity == null) return NotFound();
+    if (!await CanAccessActivity(activity)) return Forbid();
+
+    var versions = await _context.ActivityVersions
+        .Where(v => v.ActivityId == id)
+        .OrderByDescending(v => v.VersionNumber)
+        .ToListAsync();
+
+    ViewBag.Activity = activity;
+    return View(versions);
+}
+
+[HttpGet]
+[Authorize(Roles = "Akademisyen,Reviewer")]
+public async Task<IActionResult> CompareVersions(int activityId, int oldVersionId, int? newVersionId)
+{
+    var activity = await _context.Activities
+        .Include(a => a.ActivityType)
+        .FirstOrDefaultAsync(a => a.Id == activityId);
+
+    if (activity == null) return NotFound();
+    if (!await CanAccessActivity(activity)) return Forbid();
+
+    var oldVersion = await _context.ActivityVersions.FirstOrDefaultAsync(v => v.Id == oldVersionId);
+    if (oldVersion == null) return NotFound();
+
+    ActivityVersion newVersion = newVersionId.HasValue
+        ? await _context.ActivityVersions.FirstOrDefaultAsync(v => v.Id == newVersionId)
+        : null;
+
+    var allTypes = await _context.ActivityTypes.ToDictionaryAsync(t => t.Id, t => t.Name);
+
+    var rows = new List<VersionCompareRow>
+    {
+        new("Başlık", oldVersion.Title, newVersion?.Title ?? activity.Title),
+        new("Açıklama", oldVersion.Description, newVersion?.Description ?? activity.Description),
+        new("Tarih", oldVersion.ActivityDate.ToString("dd.MM.yyyy"), (newVersion?.ActivityDate ?? activity.ActivityDate).ToString("dd.MM.yyyy")),
+        new("Faaliyet Türü", allTypes.GetValueOrDefault(oldVersion.ActivityTypeId, "-"), allTypes.GetValueOrDefault(newVersion?.ActivityTypeId ?? activity.ActivityTypeId, "-")),
+        new("Durum", oldVersion.Status.ToString(), (newVersion?.Status ?? activity.Status).ToString()),
+        new("Dergi Adı", oldVersion.JournalName, newVersion?.JournalName ?? activity.JournalName),
+        new("Fon Kurumu", oldVersion.FundingAgency, newVersion?.FundingAgency ?? activity.FundingAgency),
+        new("Patent No", oldVersion.PatentNumber, newVersion?.PatentNumber ?? activity.PatentNumber),
+        new("Tez No", oldVersion.ThesisNumber, newVersion?.ThesisNumber ?? activity.ThesisNumber),
+    };
+
+    ViewBag.Activity = activity;
+    ViewBag.OldLabel = $"Versiyon {oldVersion.VersionNumber} ({oldVersion.SnapshotDate:dd.MM.yyyy HH:mm})";
+    ViewBag.NewLabel = newVersion != null
+        ? $"Versiyon {newVersion.VersionNumber} ({newVersion.SnapshotDate:dd.MM.yyyy HH:mm})"
+        : "Güncel Hal";
+
+    return View(rows);
+}
+
+private async Task<bool> CanAccessActivity(Activity activity)
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return false;
+
+    if (activity.AcademicianId == user.Id) return true;
+
+    return await _context.ReviewerAssignments
+        .AnyAsync(a => a.ReviewerId == user.Id && a.AcademicianId == activity.AcademicianId);
+}
+private string GetActivityFolder(int activityId)
+{
+    var root = Path.Combine(_env.ContentRootPath, _fileStorage.RootPath, activityId.ToString());
+    Directory.CreateDirectory(root);
+    return root;
+}
+
+[HttpPost]
+[Authorize(Roles = "Akademisyen")]
+[ValidateAntiForgeryToken]
+[RequestSizeLimit(10 * 1024 * 1024)]
+public async Task<IActionResult> UploadAttachment(int activityId, IFormFile file)
+{
+    var activity = await _context.Activities.FirstOrDefaultAsync(a => a.Id == activityId);
+    if (activity == null) return NotFound();
+
+    var currentUser = await _userManager.GetUserAsync(User);
+    if (activity.AcademicianId != currentUser.Id) return Forbid();
+
+    if (activity.Status != ActivityStatus.DRAFT && activity.Status != ActivityStatus.REVISION_REQUESTED)
+    {
+        TempData["Error"] = "Dosya sadece taslak veya revizyon istenen faaliyetlere yüklenebilir.";
+        return RedirectToAction("Details", new { id = activityId });
+    }
+
+    if (file == null || file.Length == 0)
+    {
+        TempData["Error"] = "Dosya seçilmedi.";
+        return RedirectToAction("Details", new { id = activityId });
+    }
+
+    if (file.Length > _fileStorage.MaxFileSizeBytes)
+    {
+        TempData["Error"] = $"Dosya boyutu {_fileStorage.MaxFileSizeBytes / 1024 / 1024} MB sınırını aşıyor.";
+        return RedirectToAction("Details", new { id = activityId });
+    }
+
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    if (!_fileStorage.AllowedExtensions.Contains(ext))
+    {
+        TempData["Error"] = "Bu dosya türüne izin verilmiyor.";
+        return RedirectToAction("Details", new { id = activityId });
+    }
+
+    var storedFileName = $"{Guid.NewGuid()}{ext}";
+    var folder = GetActivityFolder(activityId);
+    var fullPath = Path.Combine(folder, storedFileName);
+
+    using (var stream = new FileStream(fullPath, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    _context.ActivityAttachments.Add(new ActivityAttachment
+    {
+        ActivityId = activityId,
+        OriginalFileName = file.FileName,
+        StoredFileName = storedFileName,
+        ContentType = file.ContentType,
+        FileSizeBytes = file.Length,
+        UploadedByUserId = currentUser.Id
+    });
+
+    await _context.SaveChangesAsync();
+    await _auditLog.LogAsync("ActivityAttachment", activityId.ToString(), "UPLOAD", currentUser.UserName);
+
+    return RedirectToAction("Details", new { id = activityId });
+}
+
+[HttpGet]
+[Authorize(Roles = "Akademisyen,Reviewer")]
+public async Task<IActionResult> DownloadAttachment(int id)
+{
+    var attachment = await _context.ActivityAttachments
+        .Include(a => a.Activity)
+        .FirstOrDefaultAsync(a => a.Id == id);
+
+    if (attachment == null) return NotFound();
+    if (!await CanAccessActivity(attachment.Activity)) return Forbid();
+
+    var fullPath = Path.Combine(GetActivityFolder(attachment.ActivityId), attachment.StoredFileName);
+    if (!System.IO.File.Exists(fullPath)) return NotFound();
+
+    var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
+    return File(bytes, attachment.ContentType, attachment.OriginalFileName);
+}
+
+[HttpPost]
+[Authorize(Roles = "Akademisyen")]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> DeleteAttachment(int id)
+{
+    var attachment = await _context.ActivityAttachments
+        .Include(a => a.Activity)
+        .FirstOrDefaultAsync(a => a.Id == id);
+
+    if (attachment == null) return NotFound();
+
+    var currentUser = await _userManager.GetUserAsync(User);
+    if (attachment.Activity.AcademicianId != currentUser.Id) return Forbid();
+
+    if (attachment.Activity.Status != ActivityStatus.DRAFT && attachment.Activity.Status != ActivityStatus.REVISION_REQUESTED)
+    {
+        TempData["Error"] = "Sadece taslak veya revizyon istenen faaliyetlerden dosya silinebilir.";
+        return RedirectToAction("Details", new { id = attachment.ActivityId });
+    }
+
+    var fullPath = Path.Combine(GetActivityFolder(attachment.ActivityId), attachment.StoredFileName);
+    if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
+
+    var activityId = attachment.ActivityId;
+    _context.ActivityAttachments.Remove(attachment);
+    await _context.SaveChangesAsync();
+    await _auditLog.LogAsync("ActivityAttachment", activityId.ToString(), "DELETE", currentUser.UserName);
+
+    return RedirectToAction("Details", new { id = activityId });
+}
+[HttpPost]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> AutoSave(int? id, string title, string description,
+    DateOnly? activityDate, int? activityTypeId,
+    string? journalName, string? fundingAgency, string? patentNumber, string? thesisNumber)
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return Unauthorized();
+
+    Activity activity;
+
+    if (id == null || id == 0)
+    {
+        // Başlık ya da tür yoksa boş taslak oluşturma
+        if (string.IsNullOrWhiteSpace(title) && activityTypeId == null)
+            return Json(new { id = (int?)null });
+
+        activity = new Activity
+        {
+            AcademicianId = user.Id,
+            Status = ActivityStatus.DRAFT,
+            ActivityTypeId = activityTypeId ?? 0,
+            ActivityDate = activityDate ?? DateOnly.FromDateTime(DateTime.UtcNow)
+        };
+        _context.Activities.Add(activity);
+    }
+    else
+    {
+        activity = await _context.Activities.FirstOrDefaultAsync(a => a.Id == id);
+        if (activity == null) return NotFound();
+        if (activity.AcademicianId != user.Id) return Forbid();
+        if (activity.Status != ActivityStatus.DRAFT && activity.Status != ActivityStatus.REVISION_REQUESTED)
+            return Json(new { id = activity.Id, skipped = true }); // submit edilmiş, otomatik kaydetme
+
+        if (activityTypeId.HasValue) activity.ActivityTypeId = activityTypeId.Value;
+        if (activityDate.HasValue) activity.ActivityDate = activityDate.Value;
+    }
+
+    activity.Title = title ?? string.Empty;
+    activity.Description = description;
+    activity.JournalName = journalName;
+    activity.FundingAgency = fundingAgency;
+    activity.PatentNumber = patentNumber;
+    activity.ThesisNumber = thesisNumber;
+
+    await _context.SaveChangesAsync();
+
+    return Json(new { id = activity.Id, savedAt = DateTime.Now.ToString("HH:mm:ss") });
+}
+private async Task<Activity> FindDuplicateAsync(string title, int activityTypeId, int? excludeActivityId)
+{
+    var normalizedTitle = title?.Trim().ToLower() ?? string.Empty;
+
+    var query = _context.Activities
+        .Where(a => a.ActivityTypeId == activityTypeId)
+        .Where(a => a.Status != ActivityStatus.DRAFT);
+
+    if (excludeActivityId.HasValue)
+        query = query.Where(a => a.Id != excludeActivityId.Value);
+
+    var candidates = await query.Select(a => new { a.Id, a.Title }).ToListAsync();
+
+    return candidates
+        .Where(a => a.Title != null && a.Title.Trim().ToLower() == normalizedTitle)
+        .Select(a => new Activity { Id = a.Id, Title = a.Title })
+        .FirstOrDefault();
 }
     }
 }

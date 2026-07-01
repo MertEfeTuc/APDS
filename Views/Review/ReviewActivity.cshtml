@@ -88,9 +88,17 @@
 
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Kararı Kaydet</button>
-                    <a asp-controller="Review" asp-action="AcademicianActivities"
-                       asp-route-academicianId="@Model.AcademicianId"
-                       class="btn btn-outline-secondary">← Geri</a>
+                    @if ((bool)(ViewBag.IsDelegatedView ?? false))
+                    {
+                        <a asp-controller="Home" asp-action="ReviewerPaneli"
+                           class="btn btn-outline-secondary">← Geri</a>
+                    }
+                    else
+                    {
+                        <a asp-controller="Review" asp-action="AcademicianActivities"
+                           asp-route-academicianId="@Model.AcademicianId"
+                           class="btn btn-outline-secondary">← Geri</a>
+                    }
                 </div>
             </form>
         </div>

@@ -1,0 +1,37 @@
+@model List<APDS.Models.Notification>
+@{
+    ViewData["Title"] = "Bildirimler";
+}
+
+<h2>Bildirimler</h2>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Hiç bildiriminiz yok.</p>
+}
+else
+{
+    <form asp-action="MarkAllAsRead" method="post" class="mb-3">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-sm btn-outline-secondary">Tümünü okundu işaretle</button>
+    </form>
+
+    <ul class="list-group">
+        @foreach (var n in Model)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-start @(n.IsRead ? "" : "list-group-item-light fw-bold")">
+                <div>
+                    <div>@n.Message</div>
+                    <small class="text-muted">@n.CreatedDate.ToString("dd.MM.yyyy HH:mm") — @n.Type</small>
+                </div>
+                @if (!n.IsRead)
+                {
+                    <form asp-action="MarkAsRead" asp-route-id="@n.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Okundu İşaretle</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}

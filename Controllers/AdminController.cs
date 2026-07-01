@@ -63,6 +63,23 @@ public async Task<IActionResult> Index()
         return View(model);
     }
 
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> OverdueActivities()
+{
+    var threshold = DateTime.UtcNow.AddDays(-7);
+
+    var overdue = await _context.Activities
+        .Include(a => a.Academician)
+        .Include(a => a.ActivityType)
+        .Where(a => a.LastStatusChangeDate < threshold
+                 && (a.Status == ActivityStatus.SUBMITTED
+                  || a.Status == ActivityStatus.RESUBMITTED
+                  || a.Status == ActivityStatus.UNDER_REVIEW))
+        .OrderBy(a => a.LastStatusChangeDate)
+        .ToListAsync();
+
+    return View(overdue);
+}
     // ---- Reviewer Atamaları: Liste ----
     public async Task<IActionResult> Assignments()
     {
@@ -592,5 +609,98 @@ public async Task<IActionResult> DeleteDepartment(int id)
     var currentUser = await _userManager.GetUserAsync(User);
     await _auditLog.LogAsync("Department", department.Id.ToString(), "DELETE_DEPARTMENT", currentUser.UserName);
     return RedirectToAction("FacultiesAndDepartments");
+}
+[HttpGet]
+public async Task<IActionResult> Reports(AdminReportFilterViewModel filters)
+{
+    var query = _context.Activities
+        .Include(a => a.ActivityType)
+        .Include(a => a.Academician)
+            .ThenInclude(u => u.Department)
+                .ThenInclude(d => d.Faculty)
+        .AsQueryable();
+
+    if (filters.Year.HasValue)
+        query = query.Where(a => a.ActivityDate.Year == filters.Year.Value);
+
+    if (filters.DepartmentId.HasValue)
+        query = query.Where(a => a.Academician.DepartmentId == filters.DepartmentId.Value);
+
+    if (filters.ActivityTypeId.HasValue)
+        query = query.Where(a => a.ActivityTypeId == filters.ActivityTypeId.Value);
+
+    if (filters.Status.HasValue)
+        query = query.Where(a => a.Status == filters.Status.Value);
+
+    filters.Results = await query
+        .OrderByDescending(a => a.ActivityDate)
+        .ToListAsync();
+
+    var years = await _context.Activities
+        .Select(a => a.ActivityDate.Year)
+        .Distinct()
+        .OrderByDescending(y => y)
+        .ToListAsync();
+
+    filters.Years = years.Select(y => new SelectListItem { Value = y.ToString(), Text = y.ToString() }).ToList();
+
+    filters.Departments = await _context.Departments
+        .OrderBy(d => d.Name)
+        .Select(d => new SelectListItem { Value = d.Id.ToString(), Text = d.Name })
+        .ToListAsync();
+
+    filters.ActivityTypes = await _context.ActivityTypes
+        .OrderBy(t => t.Category).ThenBy(t => t.Name)
+        .Select(t => new SelectListItem { Value = t.Id.ToString(), Text = t.Category + " — " + t.Name })
+        .ToListAsync();
+
+    return View(filters);
+}
+
+[HttpGet]
+public async Task<IActionResult> ExportReportsCsv(int? year, int? departmentId, int? activityTypeId, ActivityStatus? status)
+{
+    var query = _context.Activities
+        .Include(a => a.ActivityType)
+        .Include(a => a.Academician)
+            .ThenInclude(u => u.Department)
+                .ThenInclude(d => d.Faculty)
+        .AsQueryable();
+
+    if (year.HasValue)
+        query = query.Where(a => a.ActivityDate.Year == year.Value);
+    if (departmentId.HasValue)
+        query = query.Where(a => a.Academician.DepartmentId == departmentId.Value);
+    if (activityTypeId.HasValue)
+        query = query.Where(a => a.ActivityTypeId == activityTypeId.Value);
+    if (status.HasValue)
+        query = query.Where(a => a.Status == status.Value);
+
+    var results = await query.OrderByDescending(a => a.ActivityDate).ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("Başlık,Akademisyen,Bölüm,Fakülte,Faaliyet Türü,Tarih,Durum,Puan");
+
+    string Csv(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
+
+    foreach (var a in results)
+    {
+        sb.AppendLine(string.Join(",",
+            Csv(a.Title),
+            Csv(a.Academician?.UserName),
+            Csv(a.Academician?.Department?.Name),
+            Csv(a.Academician?.Department?.Faculty?.Name),
+            Csv(a.ActivityType?.Name),
+            Csv(a.ActivityDate.ToString("dd.MM.yyyy")),
+            Csv(a.Status.ToString()),
+            Csv(a.ActivityType?.Score.ToString())
+        ));
+    }
+
+    var bytes = System.Text.Encoding.UTF8.GetPreamble()
+        .Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString()))
+        .ToArray();
+
+    return File(bytes, "text/csv", $"rapor_{DateTime.Now:yyyyMMdd_HHmm}.csv");
 }
 }

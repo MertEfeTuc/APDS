@@ -108,6 +108,7 @@ public async Task<IActionResult> AkademisyenPaneli()
 
     return View("~/Views/Activity/Index.cshtml", activities);
 }
+
 [Authorize(Roles = "Reviewer")]
 public async Task<IActionResult> ReviewerPaneli()
 {
@@ -132,6 +133,64 @@ public async Task<IActionResult> ReviewerPaneli()
     ViewBag.PendingCounts = pendingCounts;
     ViewBag.TotalReviewed = await _context.Reviews.CountAsync(r => r.ReviewerId == reviewer.Id);
 
+    return View(academicians);
+}
+[Authorize(Roles = "Reviewer")]
+public async Task<IActionResult> ReviewerStatistics()
+{
+    var reviewer = await _userManager.GetUserAsync(User);
+
+    var academicians = await _context.ReviewerAssignments
+        .Include(ra => ra.Academician)
+        .Where(ra => ra.ReviewerId == reviewer.Id)
+        .Select(ra => ra.Academician)
+        .ToListAsync();
+    var assignedAcademicianIds = academicians.Select(a => a.Id).ToList();
+    var pendingCounts = new Dictionary<string, int>();
+    foreach (var academician in academicians)
+    {
+        var count = await _context.Activities
+            .CountAsync(a => a.AcademicianId == academician.Id
+                           && a.DelegatedReviewerId == null
+                           && (a.Status == ActivityStatus.SUBMITTED || a.Status == ActivityStatus.RESUBMITTED));
+        pendingCounts[academician.Id] = count;
+    }
+
+    ViewBag.PendingCounts = pendingCounts;
+    ViewBag.TotalReviewed = await _context.Reviews.CountAsync(r => r.ReviewerId == reviewer.Id);
+
+    ViewBag.PendingDelegationOffers = await _context.Activities
+        .Include(a => a.Academician)
+        .Where(a => a.PendingDelegationReviewerId == reviewer.Id)
+        .ToListAsync();
+
+    ViewBag.DelegatedToMe = await _context.Activities
+        .Include(a => a.Academician)
+        .Include(a => a.ActivityType)
+        .Where(a => a.DelegatedReviewerId == reviewer.Id)
+        .OrderBy(a => a.LastStatusChangeDate)
+        .ToListAsync();
+        
+var pendingCount = await _context.Activities
+    .CountAsync(a => (assignedAcademicianIds.Contains(a.AcademicianId) && a.DelegatedReviewerId == null
+                    || a.DelegatedReviewerId == reviewer.Id)
+                   && (a.Status == ActivityStatus.SUBMITTED
+                    || a.Status == ActivityStatus.RESUBMITTED
+                    || a.Status == ActivityStatus.UNDER_REVIEW));
+
+var approvedCount = await _context.Reviews
+    .CountAsync(r => r.ReviewerId == reviewer.Id && r.Decision == ActivityStatus.APPROVED);
+
+var rejectedCount = await _context.Reviews
+    .CountAsync(r => r.ReviewerId == reviewer.Id && r.Decision == ActivityStatus.REJECTED);
+
+var revisionCount = await _context.Reviews
+    .CountAsync(r => r.ReviewerId == reviewer.Id && r.Decision == ActivityStatus.REVISION_REQUESTED);
+
+ViewBag.PendingCount = pendingCount;
+ViewBag.ApprovedCount = approvedCount;
+ViewBag.RejectedCount = rejectedCount;
+ViewBag.RevisionCount = revisionCount;
     return View(academicians);
 }
 }

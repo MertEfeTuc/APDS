@@ -1,0 +1,74 @@
+@model APDS.Models.Admin.AdminReportFilterViewModel
+
+@{
+    ViewData["Title"] = "Gelişmiş Raporlama";
+}
+
+<h2>Gelişmiş Raporlama ve Filtreleme</h2>
+<hr />
+
+<form asp-action="Reports" method="get" class="row g-2 mb-3">
+    <div class="col-md-2">
+        <select asp-for="Year" asp-items="Model.Years" class="form-select">
+            <option value="">Tüm Yıllar</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select asp-for="DepartmentId" asp-items="Model.Departments" class="form-select">
+            <option value="">Tüm Bölümler</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select asp-for="ActivityTypeId" asp-items="Model.ActivityTypes" class="form-select">
+            <option value="">Tüm Türler</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select asp-for="Status" class="form-select">
+            <option value="">Tüm Durumlar</option>
+            @foreach (var s in Enum.GetValues<ActivityStatus>())
+            {
+                <option value="@s" selected="@(Model.Status == s)">@s</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2 d-flex gap-1">
+        <button type="submit" class="btn btn-primary">Filtrele</button>
+        <a asp-action="ExportReportsCsv"
+           asp-route-year="@Model.Year" asp-route-departmentId="@Model.DepartmentId"
+           asp-route-activityTypeId="@Model.ActivityTypeId" asp-route-status="@Model.Status"
+           class="btn btn-outline-success">CSV İndir</a>
+    </div>
+</form>
+
+<p class="text-muted">@Model.Results.Count sonuç bulundu.</p>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Başlık</th>
+            <th>Akademisyen</th>
+            <th>Bölüm</th>
+            <th>Fakülte</th>
+            <th>Tür</th>
+            <th>Tarih</th>
+            <th>Durum</th>
+            <th>Puan</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var a in Model.Results)
+        {
+            <tr>
+                <td>@a.Title</td>
+                <td>@a.Academician?.UserName</td>
+                <td>@a.Academician?.Department?.Name</td>
+                <td>@a.Academician?.Department?.Faculty?.Name</td>
+                <td>@a.ActivityType?.Name</td>
+                <td>@a.ActivityDate.ToString("dd.MM.yyyy")</td>
+                <td>@a.Status</td>
+                <td>@a.ActivityType?.Score</td>
+            </tr>
+        }
+    </tbody>
+</table>

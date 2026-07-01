@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = "Takvim";
+}
+
+<h2 class="mb-4">Faaliyet Takvimi</h2>
+
+<div class="mb-3">
+    <span class="badge" style="background:#9e9e9e;">Taslak</span>
+    <span class="badge" style="background:#2196f3;">Gönderildi</span>
+    <span class="badge" style="background:#ff9800;">İncelemede</span>
+    <span class="badge" style="background:#4caf50;">Onaylandı</span>
+    <span class="badge" style="background:#f44336;">Reddedildi</span>
+    <span class="badge" style="background:#e91e63;">Revizyon İstendi</span>
+</div>
+
+<div id="calendar"></div>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.11/index.global.min.css" rel="stylesheet" />
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/6.1.11/index.global.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                height: 650,
+                events: '/Calendar/Events'
+            });
+            calendar.render();
+        });
+    </script>
+}

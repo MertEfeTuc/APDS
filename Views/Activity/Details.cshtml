@@ -32,5 +32,49 @@
         <button type="submit" class="btn btn-danger">Sil</button>
     </form>
 }
+<hr />
+<h5>Ekli Belgeler</h5>
 
+@{
+    var attachments = ViewBag.Attachments as List<APDS.Models.ActivityAttachment>;
+}
+
+@if (attachments != null && attachments.Any())
+{
+    <ul class="list-group mb-3">
+        @foreach (var att in attachments)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a asp-action="DownloadAttachment" asp-route-id="@att.Id">@att.OriginalFileName</a>
+                <span class="text-muted small">(@(att.FileSizeBytes / 1024) KB)</span>
+                @if (ViewBag.CanEdit)
+                {
+                    <form asp-action="DeleteAttachment" asp-route-id="@att.Id" method="post" class="d-inline"
+                          onsubmit="return confirm('Bu dosyayı silmek istediğinize emin misiniz?');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                }
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <p class="text-muted">Henüz dosya yüklenmemiş.</p>
+}
+
+@if (ViewBag.CanEdit)
+{
+    <form asp-action="UploadAttachment" asp-route-activityId="@Model.Id" method="post" enctype="multipart/form-data" class="mb-3">
+        @Html.AntiForgeryToken()
+        <input type="file" name="file" class="form-control mb-2" />
+        <button type="submit" class="btn btn-sm btn-primary">Dosya Yükle</button>
+    </form>
+}
+<a asp-action="VersionHistory" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Versiyon Geçmişi</a>
+@if (ViewBag.CanEdit || (bool)ViewBag.IsAuthor)
+{
+    <a asp-action="CopyFromActivity" asp-route-id="@Model.Id" class="btn btn-outline-info">Kopyala</a>
+}
 <a asp-action="Index" class="btn btn-secondary">Geri</a>

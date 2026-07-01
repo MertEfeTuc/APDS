@@ -1,0 +1,60 @@
+<div class="row mb-4 g-3">
+    <div class="col-md-3">
+        <div class="card text-center border-warning">
+            <div class="card-body">
+                <h6 class="text-muted">Bekleyen</h6>
+                <h3>@ViewBag.PendingCount</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h6 class="text-muted">Onaylanan</h6>
+                <h3>@ViewBag.ApprovedCount</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-danger">
+            <div class="card-body">
+                <h6 class="text-muted">Reddedilen</h6>
+                <h3>@ViewBag.RejectedCount</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-secondary">
+            <div class="card-body">
+                <h6 class="text-muted">Revizyon İstenen</h6>
+                <h3>@ViewBag.RevisionCount</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <canvas id="workloadChart" style="max-height:280px;"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('workloadChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Bekleyen', 'Onaylanan', 'Reddedilen', 'Revizyon İstenen'],
+            datasets: [{
+                data: [@ViewBag.PendingCount, @ViewBag.ApprovedCount, @ViewBag.RejectedCount, @ViewBag.RevisionCount],
+                backgroundColor: ['#ffc107', '#198754', '#dc3545', '#6c757d']
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+</script>

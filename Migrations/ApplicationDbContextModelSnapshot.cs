@@ -42,6 +42,9 @@ namespace APDS.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DelegatedReviewerId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
@@ -52,7 +55,16 @@ namespace APDS.Migrations
                     b.Property<string>("JournalName")
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("LastStatusChangeDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("OverdueNotificationSent")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PatentNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PendingDelegationReviewerId")
                         .HasColumnType("text");
 
                     b.Property<int>("Status")
@@ -71,7 +83,53 @@ namespace APDS.Migrations
 
                     b.HasIndex("ActivityTypeId");
 
+                    b.HasIndex("DelegatedReviewerId");
+
+                    b.HasIndex("PendingDelegationReviewerId");
+
                     b.ToTable("Activities");
+                });
+
+            modelBuilder.Entity("APDS.Models.ActivityAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UploadedByUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UploadedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("ActivityAttachments");
                 });
 
             modelBuilder.Entity("APDS.Models.ActivityType", b =>
@@ -96,6 +154,63 @@ namespace APDS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ActivityTypes");
+                });
+
+            modelBuilder.Entity("APDS.Models.ActivityVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("ActivityDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ActivityTypeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FundingAgency")
+                        .HasColumnType("text");
+
+                    b.Property<string>("JournalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PatentNumber")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SnapshotDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SnapshotReason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ThesisNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.ToTable("ActivityVersions");
                 });
 
             modelBuilder.Entity("APDS.Models.AuditLog", b =>
@@ -167,6 +282,41 @@ namespace APDS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Faculties");
+                });
+
+            modelBuilder.Entity("APDS.Models.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("RelatedEntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("APDS.Models.Review", b =>
@@ -446,9 +596,53 @@ namespace APDS.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("User", "DelegatedReviewer")
+                        .WithMany()
+                        .HasForeignKey("DelegatedReviewerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("User", "PendingDelegationReviewer")
+                        .WithMany()
+                        .HasForeignKey("PendingDelegationReviewerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Academician");
 
                     b.Navigation("ActivityType");
+
+                    b.Navigation("DelegatedReviewer");
+
+                    b.Navigation("PendingDelegationReviewer");
+                });
+
+            modelBuilder.Entity("APDS.Models.ActivityAttachment", b =>
+                {
+                    b.HasOne("APDS.Models.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
+
+                    b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("APDS.Models.ActivityVersion", b =>
+                {
+                    b.HasOne("APDS.Models.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
                 });
 
             modelBuilder.Entity("APDS.Models.Department", b =>
@@ -460,6 +654,17 @@ namespace APDS.Migrations
                         .IsRequired();
 
                     b.Navigation("Faculty");
+                });
+
+            modelBuilder.Entity("APDS.Models.Notification", b =>
+                {
+                    b.HasOne("User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("APDS.Models.Review", b =>

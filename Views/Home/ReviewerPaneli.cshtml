@@ -2,13 +2,77 @@
 
 @{
     ViewData["Title"] = "Reviewer Paneli";
+    var pendingOffers = (List<APDS.Models.Activity>)ViewBag.PendingDelegationOffers;
+    var delegatedToMe = (List<APDS.Models.Activity>)ViewBag.DelegatedToMe;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Size Atanan Akademisyenler</h2>
+    <h2>Reviewer Paneli</h2>
     <span class="badge bg-secondary fs-6">Toplam İncelenen Faaliyet: @ViewBag.TotalReviewed</span>
 </div>
 
+@if (pendingOffers != null && pendingOffers.Any())
+{
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning-subtle">Bekleyen Devir Teklifleri</div>
+        <div class="card-body">
+            @foreach (var activity in pendingOffers)
+            {
+                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div>
+                        <strong>@activity.Title</strong>
+                        <div class="text-muted small">@activity.Academician?.UserName</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <form asp-controller="Review" asp-action="AcceptDelegation" method="post">
+                            <input type="hidden" name="activityId" value="@activity.Id" />
+                            <button type="submit" class="btn btn-sm btn-success">Kabul Et</button>
+                        </form>
+                        <form asp-controller="Review" asp-action="RejectDelegation" method="post">
+                            <input type="hidden" name="activityId" value="@activity.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Reddet</button>
+                        </form>
+                    </div>
+                </div>  
+            }
+        </div>
+    </div>
+}
+
+@if (delegatedToMe != null && delegatedToMe.Any())
+{
+    <div class="card mb-4">
+        <div class="card-header">Bana Devredilenler</div>
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Başlık</th>
+                    <th>Akademisyen</th>
+                    <th>Tür</th>
+                    <th>Durum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var activity in delegatedToMe)
+                {
+                    <tr>
+                        <td>@activity.Title</td>
+                        <td>@activity.Academician?.UserName</td>
+                        <td>@activity.ActivityType?.Name</td>
+                        <td>@activity.Status</td>
+                        <td>
+                            <a asp-controller="Review" asp-action="ReviewActivity" asp-route-id="@activity.Id"
+                               class="btn btn-sm btn-outline-primary">İncele</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h4>Size Atanan Akademisyenler</h4>
 <table class="table table-hover">
     <thead>
         <tr>

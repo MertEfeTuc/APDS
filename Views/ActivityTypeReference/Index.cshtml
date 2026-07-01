@@ -1,0 +1,32 @@
+@model IEnumerable<APDS.Models.ActivityType>
+@{
+    ViewData["Title"] = "Faaliyet Türleri ve Puanları";
+    var grouped = Model.GroupBy(t => t.Category);
+    var counts = ViewBag.Counts as Dictionary<int, int>;
+}
+
+<h2 class="mb-4">Faaliyet Türleri ve Puanları</h2>
+
+@foreach (var group in grouped)
+{
+    <h4 class="mt-4">@group.Key</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Faaliyet Türü</th>
+                <th>Puan</th>
+                <th>Toplam Yapılan Faaliyet Sayısı</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in group)
+            {
+                <tr>
+                    <td>@t.Name</td>
+                    <td>@t.Score</td>
+                    <td>@(counts.GetValueOrDefault(t.Id, 0))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

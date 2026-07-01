@@ -1,0 +1,29 @@
+@model List<APDS.Models.VersionCompareRow>
+@{
+    var activity = (APDS.Models.Activity)ViewBag.Activity;
+    ViewData["Title"] = "Versiyon Karşılaştırma";
+}
+
+<h2>Versiyon Karşılaştırma — @activity.Title</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Alan</th>
+            <th>@ViewBag.OldLabel</th>
+            <th>@ViewBag.NewLabel</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in Model)
+        {
+            <tr class="@(row.Changed ? "table-warning" : "")">
+                <td>@row.Label</td>
+                <td>@row.OldValue</td>
+                <td>@row.NewValue</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<a asp-action="VersionHistory" asp-route-id="@activity.Id" class="btn btn-secondary">Geri</a>

@@ -1,6 +1,6 @@
 @model APDS.Models.ActivityEditViewModel
 @using Newtonsoft.Json
-
+@Html.AntiForgeryToken()
 @{
     ViewData["Title"] = "Faaliyet Düzenle";
 }
@@ -10,6 +10,8 @@
         <h2 class="mb-4">Faaliyet Düzenle</h2>
 
         <form asp-controller="Activity" asp-action="Edit" method="post">
+            <input type="hidden" id="activityId" value="@Model.Id" />
+<small id="autoSaveStatus" class="text-muted d-block mb-2"></small>
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
             <input type="hidden" asp-for="Id" />
@@ -56,6 +58,32 @@
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 
     <script>
+let autoSaveActivityId = document.getElementById('activityId').value || null;
+
+function collectFormData() {
+    const fd = new FormData();
+    fd.append('id', autoSaveActivityId ?? '');
+    fd.append('title', document.querySelector('[name="Title"]').value);
+    fd.append('description', document.querySelector('[name="Description"]').value);
+    fd.append('activityDate', document.querySelector('[name="ActivityDate"]').value);
+    fd.append('activityTypeId', document.getElementById('activityTypeSelect').value);
+    fd.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+    return fd;
+}
+
+async function autoSave() {
+    const res = await fetch('/Activity/AutoSave', { method: 'POST', body: collectFormData() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.id) {
+        autoSaveActivityId = data.id;
+        document.getElementById('activityId').value = data.id;
+        document.getElementById('autoSaveStatus').textContent = `Son otomatik kayıt: ${data.savedAt}`;
+    }
+}
+
+setInterval(autoSave, 12000); // 2 dakika
+
     const allActivityTypes = @Html.Raw(JsonConvert.SerializeObject(Model.AllActivityTypes));
     const selectedActivityTypeId = @Model.ActivityTypeId;
 

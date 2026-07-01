@@ -40,8 +40,15 @@ namespace APDS.Models
         public string? FundingAgency { get; set; }    // Proje
         public string? PatentNumber { get; set; }      // Patent
         public string? ThesisNumber { get; set; }        // Tez Danışmanlığı
-        
 
+        public string? PendingDelegationReviewerId { get; set; }  // devir teklifi bekleniyor
+        public User? PendingDelegationReviewer { get; set; }
+
+        public string? DelegatedReviewerId { get; set; }  // kabul edilince buraya taşınır
+        public User? DelegatedReviewer { get; set; }
+
+        public DateTime LastStatusChangeDate { get; set; } = DateTime.UtcNow;
+        public bool OverdueNotificationSent { get; set; } = false;
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     }
 }

@@ -1,0 +1,47 @@
+@model List<APDS.Models.Notification>
+@{
+    int unread = ViewBag.UnreadCount;
+}
+
+<li class="nav-item dropdown">
+    <button class="btn btn-outline-secondary btn-sm position-relative dropdown-toggle" type="button"
+            id="notificationDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
+        🔔
+        @if (unread > 0)
+        {
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                @unread
+                <span class="visually-hidden">okunmamış bildirim</span>
+            </span>
+        }
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width:320px; max-height:400px; overflow-y:auto;" aria-labelledby="notificationDropdownButton">
+        @if (!Model.Any())
+        {
+            <li class="text-muted px-2 py-2">Bildirim yok.</li>
+        }
+        else
+        {
+            foreach (var n in Model)
+            {
+                <li class="@(n.IsRead ? "" : "fw-bold")" style="white-space:normal;">
+                    <form asp-controller="Notifications" asp-action="MarkAsRead" asp-route-id="@n.Id" method="post" class="px-2 py-1 border-bottom">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-link text-decoration-none text-start p-0 w-100">
+                            <div class="small">@n.Message</div>
+                            <div class="text-muted" style="font-size:0.75rem;">@n.CreatedDate.ToString("dd.MM.yyyy HH:mm")</div>
+                        </button>
+                    </form>
+                </li>
+            }
+        }
+        <li><hr class="dropdown-divider" /></li>
+        <li class="d-flex justify-content-between px-2">
+            <form asp-controller="Notifications" asp-action="MarkAllAsRead" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-link p-0">Tümünü okundu işaretle</button>
+            </form>
+            <a asp-controller="Notifications" asp-action="Index" class="btn btn-sm btn-link p-0">Tümünü gör</a>
+        </li>
+    </ul>
+</li>

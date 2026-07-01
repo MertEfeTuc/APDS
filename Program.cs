@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using APDS.Services.Notifications;
+using APDS.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +26,25 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+});
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AuthorizeFilter());
+});
+builder.Services.Configure<APDS.Services.FileStorageSettings>(builder.Configuration.GetSection("FileStorage"));
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddSingleton<NotificationQueue>();
+builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<DailyDigestService>();
+builder.Services.AddHostedService<OverdueCheckService>();
+builder.Services.AddHostedService<NotificationProcessor>();
+
+
 var app = builder.Build();
 
 // ---- ROL SEED ----
@@ -40,10 +63,11 @@ using (var scope = app.Services.CreateScope())
     }
       // ---- ADMIN KULLANICI SEED ----
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
-
+var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+var adminEmail = config["AdminSeed:Email"]!;
+var adminPassword = config["AdminSeed:Password"]!;
     ;
-    const string adminEmail = "admin@apds.local";
-    const string adminPassword = "Admin123!";
+   
 
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
     if (adminUser == null)

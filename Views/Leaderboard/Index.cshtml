@@ -1,0 +1,58 @@
+@{
+    ViewData["Title"] = "En Başarılı Akademisyenler";
+    var topList = ViewBag.TopList as IEnumerable<dynamic>;
+    var myRow = ViewBag.MyRow;
+    int? selectedYear = ViewBag.SelectedYear;
+    var availableYears = ViewBag.AvailableYears as List<int>;
+}
+
+<h2 class="mb-4">En Başarılı Akademisyenler</h2>
+
+<form method="get" class="mb-3 d-flex align-items-center gap-2">
+    <label for="year" class="form-label mb-0">Yıl:</label>
+    <select name="year" id="year" class="form-select w-auto" onchange="this.form.submit()">
+        <option value="">Tüm Zamanlar</option>
+        @foreach (var y in availableYears)
+        {
+            <option value="@y" selected="@(selectedYear == y)">@y</option>
+        }
+    </select>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Sıra</th>
+            <th>İsim</th>
+            <th>Bölüm</th>
+            <th>Puan</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var row in topList)
+        {
+            <tr>
+                <td>@row.Rank</td>
+                <td>@row.Name</td>
+                <td>@row.DepartmentName</td>
+                <td>@row.TotalScore</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (myRow != null)
+{
+    <hr />
+    <p class="text-muted">Sizin sıralamanız (Top @topList.Count() dışında):</p>
+    <table class="table table-bordered">
+        <tbody>
+            <tr class="table-primary">
+                <td>@myRow.Rank</td>
+                <td>@myRow.Name</td>
+                <td>@myRow.DepartmentName</td>
+                <td>@myRow.TotalScore</td>
+            </tr>
+        </tbody>
+    </table>
+}

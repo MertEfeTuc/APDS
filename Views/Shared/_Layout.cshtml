@@ -18,29 +18,65 @@
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between align-items-center">
+                    <ul class="navbar-nav flex-grow-1 align-items-center">
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item d-flex align-items-center">
                             <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm" type="button">
                                 🌙
                             </button>
                         </li>
-                        
+                        @if (User.IsInRole("Akademisyen"))
+{
+    <li class="nav-item">
+        <a class="nav-link text-dark" asp-controller="Activity" asp-action="Performance">Performansım</a>
+    </li>
+            }
+                    @if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer") || User.IsInRole("Admin"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Comparison" asp-action="DepartmentFacultyComparison">Bölüm/Fakülte Karşılaştırması</a>
+                        </li>
+                    }
+                    @if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer") || User.IsInRole("Admin"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Leaderboard" asp-action="Index">Sıralama</a>
+                        </li>
+                    }
+                    @if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer") || User.IsInRole("Admin"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="ActivityTypeReference" asp-action="Index">Faaliyet Türleri</a>
+                        </li>
+                    }@if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Calendar" asp-action="Index">Takvim</a>
+                        </li>
+                    }
+                    @if (User.IsInRole("Reviewer"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Home" asp-action="ReviewerStatistics">Reviewer İstatistikleri</a>
+                        </li>
+                    }
+                        @await Component.InvokeAsync("NotificationDropdown")
                     </ul>
-                                    <li class="nav-item ms-auto">
-                    <form asp-controller="Account" asp-action="Logout" method="post" id="logoutForm">
-                        <button id="exitButton" class="btn btn-outline-primary btn-sm" type="submit">
-                            Exit
-                        </button>
-                    </form>
-                </li>
-                </button>
+                    <ul class="navbar-nav align-items-center">
+                        <li class="nav-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post" id="logoutForm">
+                                <button id="exitButton" class="btn btn-outline-primary btn-sm" type="submit">
+                                    Exit
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </nav>

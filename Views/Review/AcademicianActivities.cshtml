@@ -1,23 +1,35 @@
-@model IEnumerable<APDS.Models.Activity>
+@model APDS.Models.AcademicianActivitiesViewModel
 
 @{
     ViewData["Title"] = "İnceleme Bekleyen Faaliyetler";
-    string academicianName = ViewBag.AcademicianName ?? "Akademisyen";
 }
 
 <div class="container mt-4">
-    <h4>@academicianName — Faaliyetleri</h4>
+    <h4>@Model.AcademicianName — Faaliyetleri</h4>
     <hr />
 
-    @if (!Model.Any())
+    @if (!Model.Activities.Any())
     {
         <div class="alert alert-info">Bu akademisyene ait incelenecek faaliyet bulunamadı.</div>
     }
     else
     {
+        <form id="bulkForm" asp-controller="Review" asp-action="BulkReview" method="post">
+            <input type="hidden" name="academicianId" value="@Model.AcademicianId" />
+            <input type="hidden" name="decision" id="bulkDecision" />
+            <input type="hidden" name="comment" id="bulkComment" />
+        </form>
+
+        <div class="d-flex gap-2 mb-2">
+            <button type="button" class="btn btn-sm btn-success" onclick="submitBulk('approve')">Seçilenleri Onayla</button>
+            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#bulkRejectModal">Seçilenleri Reddet</button>
+            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#bulkRevisionModal">Revizyon İste</button>
+        </div>
+
         <table class="table table-hover">
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="selectAll" /></th>
                     <th>Başlık</th>
                     <th>Tür</th>
                     <th>Tarih</th>
@@ -26,9 +38,15 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var activity in Model)
+                @foreach (var activity in Model.Activities)
                 {
+                    bool isOverdue = (DateTime.UtcNow - activity.LastStatusChangeDate).TotalDays > 7
+                                   && (activity.Status == ActivityStatus.SUBMITTED
+                                    || activity.Status == ActivityStatus.RESUBMITTED
+                                    || activity.Status == ActivityStatus.UNDER_REVIEW);
+
                     <tr>
+                        <td><input type="checkbox" class="activity-checkbox" name="activityIds" value="@activity.Id" form="bulkForm" /></td>
                         <td>@activity.Title</td>
                         <td>@activity.ActivityType?.Name</td>
                         <td>@activity.ActivityDate.ToString("dd.MM.yyyy")</td>
@@ -36,15 +54,109 @@
                             <span class="badge bg-@GetBadgeColor(activity.Status)">
                                 @activity.Status
                             </span>
+                            @if (isOverdue)
+                            {
+                                <span class="badge bg-danger">Gecikti</span>
+                            }
                         </td>
-                        <td>
+                        <td class="d-flex gap-1">
                             <a asp-controller="Review" asp-action="ReviewActivity" asp-route-id="@activity.Id"
                                class="btn btn-sm btn-outline-primary">İncele</a>
+
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    data-bs-toggle="modal" data-bs-target="#delegateModal-@activity.Id">
+                                Devret
+                            </button>
                         </td>
                     </tr>
+
+                    <div class="modal fade" id="delegateModal-@activity.Id" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form asp-controller="Review" asp-action="DelegateActivity" method="post">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">"@activity.Title" faaliyetini devret</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <input type="hidden" name="activityId" value="@activity.Id" />
+                                        <label class="form-label">Reviewer seç</label>
+                                        <select name="targetReviewerId" class="form-select" required>
+                                            <option value="">-- Seçiniz --</option>
+                                            @foreach (var r in Model.AvailableReviewers)
+                                            {
+                                                <option value="@r.Id">@r.UserName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                                        <button type="submit" class="btn btn-warning">Devret</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 }
             </tbody>
         </table>
+
+        <div class="modal fade" id="bulkRejectModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title">Seçilenleri Reddet</h5></div>
+                    <div class="modal-body">
+                        <label class="form-label">Ret gerekçesi (zorunlu)</label>
+                        <textarea id="rejectComment" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                        <button type="button" class="btn btn-danger" onclick="submitBulkWithComment('reject', 'rejectComment')">Reddet</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="bulkRevisionModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title">Revizyon İste</h5></div>
+                    <div class="modal-body">
+                        <label class="form-label">Revizyon notu (zorunlu)</label>
+                        <textarea id="revisionComment" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                        <button type="button" class="btn btn-warning" onclick="submitBulkWithComment('revision', 'revisionComment')">Revizyon İste</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('selectAll').addEventListener('change', function () {
+                document.querySelectorAll('.activity-checkbox').forEach(cb => cb.checked = this.checked);
+            });
+
+            function getSelectedCount() {
+                return document.querySelectorAll('.activity-checkbox:checked').length;
+            }
+
+            function submitBulk(decision) {
+                if (getSelectedCount() === 0) { alert('Hiçbir faaliyet seçilmedi.'); return; }
+                document.getElementById('bulkDecision').value = decision;
+                document.getElementById('bulkForm').submit();
+            }
+
+            function submitBulkWithComment(decision, textareaId) {
+                var comment = document.getElementById(textareaId).value.trim();
+                if (!comment) { alert('Yorum zorunludur.'); return; }
+                if (getSelectedCount() === 0) { alert('Hiçbir faaliyet seçilmedi.'); return; }
+                document.getElementById('bulkDecision').value = decision;
+                document.getElementById('bulkComment').value = comment;
+                document.getElementById('bulkForm').submit();
+            }
+        </script>
     }
 
     <a asp-controller="Home" asp-action="ReviewerPaneli" class="btn btn-secondary mt-2">← Geri</a>
