@@ -25,7 +25,6 @@
 @if (ViewBag.CanEdit)
 {
     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Düzenle</a>
-
     <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
           onsubmit="return confirm('Bu faaliyeti silmek istediğinize emin misiniz?');">
         @Html.AntiForgeryToken()

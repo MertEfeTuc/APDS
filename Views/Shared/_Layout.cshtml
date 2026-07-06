@@ -66,6 +66,16 @@
                             <a class="nav-link text-dark" asp-controller="Home" asp-action="ReviewerStatistics">Reviewer İstatistikleri</a>
                         </li>
                     }
+                    @if (User.IsInRole("Akademisyen"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Activity" asp-action="Performance">Performansım</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Profile" asp-action="Index">Profilim</a>
+                        </li>
+                    }
+                    <a class="nav-link" asp-controller="Security" asp-action="Index">Güvenlik Ayarları</a>
                         @await Component.InvokeAsync("NotificationDropdown")
                     </ul>
                     <ul class="navbar-nav align-items-center">

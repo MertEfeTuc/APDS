@@ -1,52 +1,97 @@
 @using Newtonsoft.Json
+@model List<APDS.Models.Activity>
 @{
-    ViewData["Title"] = "Performansım";
+    var profileUser = (User)ViewBag.ProfileUser;
+    ViewData["Title"] = profileUser.UserName + " — Profil";
     var years = (List<int>)ViewBag.Years;
     var hasData = years != null && years.Any();
 }
 
-<h2 class="mb-4">Performansım — Yıllara Göre</h2>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h2>@profileUser.UserName</h2>
+            <p class="text-muted mb-0">@profileUser.Email</p>
+            <p class="text-muted mb-0">
+                @profileUser.Department?.Name — @profileUser.Department?.Faculty?.Name
+            </p>
+        </div>
+        <div class="text-end">
+            <h4 class="mb-0">@ViewBag.TotalScore <small class="text-muted fs-6">puan</small></h4>
+            <span class="text-muted">@ViewBag.TotalApprovedCount onaylı faaliyet</span>
+        </div>
+    </div>
 
-@if (!hasData)
-{
-    <p class="text-muted">Henüz onaylanmış bir faaliyetiniz yok, grafik için veri bulunmuyor.</p>
-}
-else
-{
-    <canvas id="performanceChart" style="max-height:450px;"></canvas>
+    <hr />
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <script>
-        const years = @Html.Raw(JsonConvert.SerializeObject(years));
-        const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
+    @if (!hasData)
+    {
+        <p class="text-muted">Henüz onaylanmış bir faaliyet yok, grafik için veri bulunmuyor.</p>
+    }
+    else
+    {
+        <canvas id="profileChart" style="max-height:450px;"></canvas>
 
-        const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+        <script>
+            const years = @Html.Raw(JsonConvert.SerializeObject(years));
+            const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
 
-        const chartDatasets = datasets.map((ds, i) => ({
-            label: ds.label,
-            data: ds.data,
-            backgroundColor: colors[i % colors.length]
-        }));
+            const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
 
-        new Chart(document.getElementById('performanceChart'), {
-            type: 'bar',
-            data: {
-                labels: years,
-                datasets: chartDatasets
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: { display: true, text: 'Yıllara Göre Faaliyet Puanı (Kategori Kırılımlı)' },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Puan' } }
+            const chartDatasets = datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: colors[i % colors.length]
+            }));
+
+            new Chart(document.getElementById('profileChart'), {
+                type: 'bar',
+                data: { labels: years, datasets: chartDatasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: 'Yıllara Göre Faaliyet Puanı (Kategori Kırılımlı)' },
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Puan' } }
+                    }
                 }
-            }
-        });
-    </script>
-}
+            });
+        </script>
+    }
 
-<a asp-action="Index" class="btn btn-secondary mt-3">Geri</a>
+    <hr class="mt-4" />
+
+    <h5>Onaylı Faaliyetler</h5>
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">Henüz onaylanmış faaliyet yok.</div>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Başlık</th>
+                    <th>Tür</th>
+                    <th>Tarih</th>
+                    <th>Puan</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model)
+                {
+                    <tr>
+                        <td>@a.Title</td>
+                        <td>@a.ActivityType?.Name</td>
+                        <td>@a.ActivityDate.ToString("dd.MM.yyyy")</td>
+                        <td>@a.ActivityType?.Score</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

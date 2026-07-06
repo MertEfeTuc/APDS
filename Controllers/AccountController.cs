@@ -80,26 +80,110 @@ public async Task<IActionResult> Register(RegisterViewModel model)
         }
 
         [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel model)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
+[AllowAnonymous]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> Login(LoginViewModel model)
+{
+    if (!ModelState.IsValid)
+        return View(model);
 
-            var result = await _signInManager.PasswordSignInAsync(
-            model.Username, model.Password, model.RememberMe, lockoutOnFailure: false);
+    var result = await _signInManager.PasswordSignInAsync(
+        model.Username, model.Password, model.RememberMe, lockoutOnFailure: false);
 
-            if (result.Succeeded)
-            {
-                var user = await _userManager.FindByNameAsync(model.Username);   // ← eklendi
-                return await RedirectByRole(user);                                // ← değişti
-            }
+    if (result.Succeeded)
+    {
+        var user = await _userManager.FindByNameAsync(model.Username);
+        return await RedirectByRole(user);
+    }
 
-            ModelState.AddModelError(string.Empty, "Kullanıcı adı veya şifre yanlış.");
-            
-            return View(model);
-        }
+    if (result.RequiresTwoFactor)
+    {
+        return RedirectToAction(nameof(TwoFactorLogin), new { rememberMe = model.RememberMe });
+    }
+
+    ModelState.AddModelError(string.Empty, "Kullanıcı adı veya şifre yanlış.");
+    return View(model);
+}
+
+[HttpGet]
+[AllowAnonymous]
+public async Task<IActionResult> TwoFactorLogin(bool rememberMe)
+{
+    var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+    if (user == null)
+        return RedirectToAction(nameof(Login));
+
+    return View(new TwoFactorLoginViewModel { RememberMe = rememberMe });
+}
+
+[HttpPost]
+[AllowAnonymous]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> TwoFactorLogin(TwoFactorLoginViewModel model)
+{
+    if (!ModelState.IsValid)
+        return View(model);
+
+    var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+    if (user == null)
+        return RedirectToAction(nameof(Login));
+
+    var code = model.Code.Replace(" ", string.Empty).Replace("-", string.Empty);
+
+    var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(
+        code, model.RememberMe, model.RememberMachine);
+
+    if (result.Succeeded)
+        return await RedirectByRole(user);
+
+    if (result.IsLockedOut)
+    {
+        ModelState.AddModelError(string.Empty, "Hesap kilitlendi, lütfen daha sonra tekrar deneyin.");
+        return View(model);
+    }
+
+    ModelState.AddModelError(string.Empty, "Doğrulama kodu geçersiz.");
+    return View(model);
+}
+
+[HttpGet]
+[AllowAnonymous]
+public async Task<IActionResult> RecoveryCodeLogin()
+{
+    var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+    if (user == null)
+        return RedirectToAction(nameof(Login));
+
+    return View(new RecoveryCodeLoginViewModel());
+}
+
+[HttpPost]
+[AllowAnonymous]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> RecoveryCodeLogin(RecoveryCodeLoginViewModel model)
+{
+    if (!ModelState.IsValid)
+        return View(model);
+
+    var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+    if (user == null)
+        return RedirectToAction(nameof(Login));
+
+    var code = model.RecoveryCode.Replace(" ", string.Empty);
+    var result = await _signInManager.TwoFactorRecoveryCodeSignInAsync(code);
+
+    if (result.Succeeded)
+        return await RedirectByRole(user);
+
+    if (result.IsLockedOut)
+    {
+        ModelState.AddModelError(string.Empty, "Hesap kilitlendi, lütfen daha sonra tekrar deneyin.");
+        return View(model);
+    }
+
+    ModelState.AddModelError(string.Empty, "Kurtarma kodu geçersiz veya daha önce kullanılmış.");
+    return View(model);
+}
 
         [HttpPost]
         [ValidateAntiForgeryToken]
