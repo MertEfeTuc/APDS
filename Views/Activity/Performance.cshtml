@@ -1,6 +1,8 @@
 @using Newtonsoft.Json
+@model List<APDS.Models.Activity>
 @{
-    ViewData["Title"] = "Performansım";
+    var profileUser = (User)ViewBag.ProfileUser;
+    ViewData["Title"] = profileUser.UserName + " — Profil";
     var years = (List<int>)ViewBag.Years;
     var hasData = years != null && years.Any();
 }
@@ -16,14 +18,32 @@
     else
     {
         <canvas id="profileChart" style="max-height:450px;"></canvas>
+    }
+    @if (!hasData)
+    {
+        <p class="text-muted">Henüz onaylanmış bir faaliyet yok, grafik için veri bulunmuyor.</p>
+    }
+    else
+    {
+        <canvas id="profileChart" style="max-height:450px;"></canvas>
 
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+        <script>
+            const years = @Html.Raw(JsonConvert.SerializeObject(years));
+            const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
         <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
         <script>
             const years = @Html.Raw(JsonConvert.SerializeObject(years));
             const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
 
             const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
+            const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
 
+            const chartDatasets = datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: colors[i % colors.length]
+            }));
             const chartDatasets = datasets.map((ds, i) => ({
                 label: ds.label,
                 data: ds.data,
