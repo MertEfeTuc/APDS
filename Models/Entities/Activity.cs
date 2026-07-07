@@ -50,5 +50,8 @@ namespace APDS.Models
         public DateTime LastStatusChangeDate { get; set; } = DateTime.UtcNow;
         public bool OverdueNotificationSent { get; set; } = false;
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public string? Doi { get; set; }
+public string? OrcidPutCode { get; set; }
+public int? CitationCount { get; set; }
     }
 }

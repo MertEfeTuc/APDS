@@ -5,48 +5,46 @@
     var hasData = years != null && years.Any();
 }
 
-<h2 class="mb-4">Performansım — Yıllara Göre</h2>
+<div class="container mt-4">
+    <h2>Performansım</h2>
+    <hr />
 
-@if (!hasData)
-{
-    <p class="text-muted">Henüz onaylanmış bir faaliyetiniz yok, grafik için veri bulunmuyor.</p>
-}
-else
-{
-    <canvas id="performanceChart" style="max-height:450px;"></canvas>
+    @if (!hasData)
+    {
+        <p class="text-muted">Henüz onaylanmış bir faaliyet yok, grafik için veri bulunmuyor.</p>
+    }
+    else
+    {
+        <canvas id="profileChart" style="max-height:450px;"></canvas>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <script>
-        const years = @Html.Raw(JsonConvert.SerializeObject(years));
-        const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+        <script>
+            const years = @Html.Raw(JsonConvert.SerializeObject(years));
+            const datasets = @Html.Raw(JsonConvert.SerializeObject(ViewBag.Datasets));
 
-        const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
+            const colors = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'];
 
-        const chartDatasets = datasets.map((ds, i) => ({
-            label: ds.label,
-            data: ds.data,
-            backgroundColor: colors[i % colors.length]
-        }));
+            const chartDatasets = datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.data,
+                backgroundColor: colors[i % colors.length]
+            }));
 
-        new Chart(document.getElementById('performanceChart'), {
-            type: 'bar',
-            data: {
-                labels: years,
-                datasets: chartDatasets
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: { display: true, text: 'Yıllara Göre Faaliyet Puanı (Kategori Kırılımlı)' },
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Puan' } }
+            new Chart(document.getElementById('profileChart'), {
+                type: 'bar',
+                data: { labels: years, datasets: chartDatasets },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: 'Yıllara Göre Faaliyet Puanı (Kategori Kırılımlı)' },
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Puan' } }
+                    }
                 }
-            }
-        });
-    </script>
-}
-
-<a asp-action="Index" class="btn btn-secondary mt-3">Geri</a>
+            });
+        </script>
+    }
+</div>

@@ -14,7 +14,8 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+builder.Services.AddHttpClient<APDS.Services.IOrcidService, APDS.Services.OrcidService>();
+builder.Services.AddHttpClient<APDS.Services.ISemanticScholarService, APDS.Services.SemanticScholarService>();
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -47,6 +48,7 @@ builder.Services.AddHostedService<NotificationProcessor>();
 
 var app = builder.Build();
 
+new APDS.Models.ActivityType { Category = "Yayınlar", Name = "Otomatik İçe Aktarılan Yayın", Score = 10 };
 // ---- ROL SEED ----
 using (var scope = app.Services.CreateScope())
 {
@@ -115,6 +117,13 @@ if (!dbContext.ActivityTypes.Any())
         // Tezler
         new APDS.Models.ActivityType { Category = "Tezler", Name = "Doktora Tezi", Score = 20 },
         new APDS.Models.ActivityType { Category = "Tezler", Name = "Yüksek Lisans Tezi", Score = 10 }
+    );
+    await dbContext.SaveChangesAsync();
+}
+if (!dbContext.ActivityTypes.Any(t => t.Name == "Otomatik İçe Aktarılan Yayın"))
+{
+    dbContext.ActivityTypes.Add(
+        new APDS.Models.ActivityType { Category = "Yayınlar", Name = "Otomatik İçe Aktarılan Yayın", Score = 10 }
     );
     await dbContext.SaveChangesAsync();
 }

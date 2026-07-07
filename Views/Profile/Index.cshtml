@@ -1,0 +1,97 @@
+@model List<APDS.Models.Activity>
+@{
+    var profileUser = (User)ViewBag.ProfileUser;
+    ViewData["Title"] = profileUser.UserName + " — Profil";
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h2>@profileUser.UserName</h2>
+        @if (!string.IsNullOrWhiteSpace(profileUser.Title))
+        {
+            <p class="text-muted mb-0">@profileUser.Title</p>
+        }
+        <p class="text-muted mb-0">@profileUser.Email</p>
+        <p class="text-muted mb-0">
+            @profileUser.Department?.Name — @profileUser.Department?.Faculty?.Name
+        </p>
+        @if (!string.IsNullOrWhiteSpace(profileUser.Bio))
+        {
+            <p class="mt-2">@profileUser.Bio</p>
+        }
+        @if ((bool)ViewBag.IsOwnProfile)
+{
+    <a asp-action="Edit" class="btn btn-sm btn-outline-primary mb-2">Profili Düzenle</a>
+    <form asp-action="SyncFromOrcid" method="post" class="d-inline">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-sm btn-outline-success mb-2">ORCID'den Senkronize Et</button>
+    </form>
+}
+    </div>
+    <div class="text-end">
+        @if ((bool)ViewBag.IsOwnProfile)
+        {
+            <a asp-action="Edit" class="btn btn-sm btn-outline-primary mb-2">Profili Düzenle</a>
+        }
+        <h4 class="mb-0">@ViewBag.TotalScore <small class="text-muted fs-6">puan</small></h4>
+        <span class="text-muted">@ViewBag.TotalApprovedCount onaylı faaliyet</span>
+    </div>
+</div>
+
+    <h5>Onaylı Faaliyetler</h5>
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">Henüz onaylanmış faaliyet yok.</div>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Başlık</th>
+                    <th>Tür</th>
+                    <th>Tarih</th>
+                    <th>Puan</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model)
+                {
+                    <tr>
+                        <td>@a.Title</td>
+                        <td>@a.ActivityType?.Name</td>
+                        <td>@a.ActivityDate.ToString("dd.MM.yyyy")</td>
+                        <td>@a.ActivityType?.Score</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const years = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Years));
+        const datasets = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Datasets));
+
+        new Chart(document.getElementById('profileChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: years,
+                datasets: datasets.map(d => ({ label: d.label, data: d.data }))
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    </script>
+}

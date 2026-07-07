@@ -1,0 +1,29 @@
+@* Hedef konum: Views/Security/ShowRecoveryCodes.cshtml *@
+@model string[]
+
+@{
+    ViewData["Title"] = "Kurtarma Kodları";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <h2 class="mb-3">Kurtarma Kodların</h2>
+        <div class="alert alert-warning">
+            Bu kodları güvenli bir yerde sakla. Bu ekranı bir daha göremeyeceksin.
+            Authenticator uygulamana erişemediğinde her kod yalnızca <strong>bir kez</strong> kullanılabilir.
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row row-cols-2 g-2 font-monospace">
+                    @foreach (var code in Model)
+                    {
+                        <div class="col">@code</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <a asp-controller="Security" asp-action="Index" class="btn btn-dark w-100">Devam Et</a>
+    </div>
+</div>

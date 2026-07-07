@@ -1,0 +1,32 @@
+@* Hedef konum: Views/Account/RecoveryCodeLogin.cshtml *@
+@model APDS.Models.RecoveryCodeLoginViewModel
+
+@{
+    ViewData["Title"] = "Kurtarma Kodu";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <h2 class="mb-3 text-center">Kurtarma Kodu ile Giriş</h2>
+        <p class="text-muted text-center mb-4">
+            Authenticator uygulamana erişemiyorsan, kurulum sırasında verilen kurtarma kodlarından birini kullan.
+            Her kod yalnızca bir kez kullanılabilir.
+        </p>
+
+        <form asp-controller="Account" asp-action="RecoveryCodeLogin" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="RecoveryCode" class="form-label"></label>
+                <input asp-for="RecoveryCode" class="form-control" autocomplete="off" autofocus />
+                <span asp-validation-for="RecoveryCode" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-dark w-100">Giriş Yap</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

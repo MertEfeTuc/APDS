@@ -1,0 +1,52 @@
+@* Hedef konum: Views/Security/Index.cshtml *@
+@model APDS.Models.SecurityIndexViewModel
+
+@{
+    ViewData["Title"] = "Güvenlik Ayarları";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <h2 class="mb-4">Güvenlik Ayarları</h2>
+
+        @if (TempData["Message"] is string message)
+        {
+            <div class="alert alert-success">@message</div>
+        }
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">İki Faktörlü Kimlik Doğrulama (2FA)</h5>
+
+                @if (Model.TwoFactorEnabled)
+                {
+                    <p class="card-text text-success mb-1">
+                        <strong>Aktif.</strong> Giriş yaparken authenticator uygulamandan kod istenecek.
+                    </p>
+                    <p class="card-text text-muted mb-3">
+                        Kalan kurtarma kodu: <strong>@Model.RecoveryCodesLeft</strong>
+                    </p>
+
+                    <form asp-controller="Security" asp-action="RegenerateRecoveryCodes" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-dark btn-sm">Kurtarma Kodlarını Yenile</button>
+                    </form>
+
+                    <form asp-controller="Security" asp-action="Disable2FA" method="post" class="d-inline"
+                          onsubmit="return confirm('İki faktörlü kimlik doğrulamayı kapatmak istediğine emin misin?');">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">2FA'yı Kapat</button>
+                    </form>
+                }
+                else
+                {
+                    <p class="card-text text-muted mb-3">
+                        Şu anda kapalı. Hesabını daha güvenli hale getirmek için etkinleştirebilirsin.
+                    </p>
+
+                    <a asp-controller="Security" asp-action="EnableAuthenticator" class="btn btn-dark btn-sm">
+                        2FA'yı Etkinleştir
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>

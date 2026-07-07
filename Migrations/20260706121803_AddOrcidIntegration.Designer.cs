@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace APDS.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706121803_AddOrcidIntegration")]
+    partial class AddOrcidIntegration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,9 +42,6 @@ namespace APDS.Migrations
                     b.Property<int>("ActivityTypeId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("CitationCount")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -52,9 +52,6 @@ namespace APDS.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Doi")
-                        .HasColumnType("text");
-
                     b.Property<string>("FundingAgency")
                         .HasColumnType("text");
 
@@ -63,9 +60,6 @@ namespace APDS.Migrations
 
                     b.Property<DateTime>("LastStatusChangeDate")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("OrcidPutCode")
-                        .HasColumnType("text");
 
                     b.Property<bool>("OverdueNotificationSent")
                         .HasColumnType("boolean");
@@ -560,9 +554,6 @@ namespace APDS.Migrations
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<string>("OrcidId")
-                        .HasColumnType("text");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");

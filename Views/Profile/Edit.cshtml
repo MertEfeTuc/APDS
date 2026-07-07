@@ -1,0 +1,34 @@
+@model APDS.Models.ProfileEditViewModel
+@{
+    ViewData["Title"] = "Profili Düzenle";
+}
+
+<div class="container mt-4" style="max-width:600px;">
+    <h2>Profili Düzenle</h2>
+    <hr />
+
+    <form asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Title" class="form-label">Unvan</label>
+            <input asp-for="Title" class="form-control" placeholder="örn. Dr. Öğr. Üyesi" />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Bio" class="form-label">Kısa Biyografi</label>
+            <textarea asp-for="Bio" class="form-control" rows="4"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="OrcidId" class="form-label">ORCID ID</label>
+            <input asp-for="OrcidId" class="form-control" placeholder="0000-0001-2345-6789" />
+            <span asp-validation-for="OrcidId" class="text-danger"></span>
+            <div class="form-text">ORCID profilinizin URL'sindeki son kısım (örn. orcid.org/<strong>0000-0001-2345-6789</strong>).</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a asp-action="Index" class="btn btn-secondary">İptal</a>
+    </form>
+</div>

@@ -1,0 +1,52 @@
+@* Hedef konum: Views/Security/EnableAuthenticator.cshtml *@
+@model APDS.Models.EnableAuthenticatorViewModel
+
+@{
+    ViewData["Title"] = "İki Faktörlü Doğrulamayı Etkinleştir";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <h2 class="mb-3">2FA Kurulumu</h2>
+        <p class="text-muted">
+            1. Telefonuna Google Authenticator, Microsoft Authenticator veya benzeri bir uygulama kur.<br />
+            2. Aşağıdaki QR kodu uygulama ile tara (veya anahtarı elle gir).<br />
+            3. Uygulamanın gösterdiği 6 haneli kodu aşağıya yaz ve onayla.
+        </p>
+
+        <div class="text-center my-4">
+            <div id="qrCode"></div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Manuel anahtar</label>
+            <input type="text" class="form-control" value="@Model.SharedKey" readonly />
+        </div>
+
+        <form asp-controller="Security" asp-action="EnableAuthenticator" method="post">
+            <input type="hidden" asp-for="SharedKey" />
+            <input type="hidden" asp-for="AuthenticatorUri" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Code" class="form-label"></label>
+                <input asp-for="Code" class="form-control" autocomplete="off" autofocus />
+                <span asp-validation-for="Code" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-dark w-100">Onayla ve Etkinleştir</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        new QRCode(document.getElementById("qrCode"), {
+            text: "@Html.Raw(Model.AuthenticatorUri)",
+            width: 200,
+            height: 200
+        });
+    </script>
+}

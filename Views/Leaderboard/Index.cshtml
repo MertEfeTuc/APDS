@@ -26,6 +26,7 @@
             <th>İsim</th>
             <th>Bölüm</th>
             <th>Puan</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -36,6 +37,10 @@
                 <td>@row.Name</td>
                 <td>@row.DepartmentName</td>
                 <td>@row.TotalScore</td>
+                <td>
+                    <a asp-controller="Profile" asp-action="Index" asp-route-id="@row.Id"
+                       class="btn btn-sm btn-outline-secondary">Profili Gör</a>
+                </td>
             </tr>
         }
     </tbody>
@@ -52,6 +57,10 @@
                 <td>@myRow.Name</td>
                 <td>@myRow.DepartmentName</td>
                 <td>@myRow.TotalScore</td>
+                <td>
+                    <a asp-controller="Profile" asp-action="Index" asp-route-id="@myRow.Id"
+                       class="btn btn-sm btn-outline-secondary">Profili Gör</a>
+                </td>
             </tr>
         </tbody>
     </table>
