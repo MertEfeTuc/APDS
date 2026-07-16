@@ -29,6 +29,93 @@
                     <span class="badge bg-secondary">@Model.Status</span>
                 </dd>
             </dl>
+            @{
+    var plagiarismCheck = ViewBag.PlagiarismCheck as APDS.Models.PlagiarismCheck;
+}
+
+@if (plagiarismCheck != null)
+{
+    <div class="card mb-4">
+        <div class="card-header">Kopya Kontrolü</div>
+        <div class="card-body">
+            @switch (plagiarismCheck.Status)
+            {
+                case APDS.Models.PlagiarismCheckStatus.Pending:
+                    <span class="badge bg-secondary">Beklemede</span>
+                    <p class="text-muted mt-2 mb-0">Kontrol henüz başlamadı.</p>
+                    break;
+
+                case APDS.Models.PlagiarismCheckStatus.Running:
+                    <span class="badge bg-info text-dark">Çalışıyor</span>
+                    <p class="text-muted mt-2 mb-0">Kontrol sürüyor, sayfayı birazdan yenileyin.</p>
+                    break;
+
+                case APDS.Models.PlagiarismCheckStatus.Failed:
+    <span class="badge bg-warning text-dark">Başarısız</span>
+    <p class="text-muted mt-2 mb-2">@plagiarismCheck.ErrorMessage</p>
+
+    <form asp-controller="Review" asp-action="RetryPlagiarismCheck" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="activityId" value="@Model.Id" />
+        <input type="hidden" name="plagiarismCheckId" value="@plagiarismCheck.Id" />
+        <button type="submit" class="btn btn-outline-secondary btn-sm">Tekrar Dene</button>
+    </form>
+    break;
+
+                case APDS.Models.PlagiarismCheckStatus.Completed:
+                    var scorePercent = plagiarismCheck.SimilarityScore.HasValue
+                        ? (plagiarismCheck.SimilarityScore.Value * 100).ToString("0")
+                        : "?";
+                    var badgeClass = plagiarismCheck.SimilarityScore switch
+                    {
+                        >= 0.7 => "bg-danger",
+                        >= 0.4 => "bg-warning text-dark",
+                        _ => "bg-success"
+                    };
+
+                    <span class="badge @badgeClass">Benzerlik: %@scorePercent</span>
+                    @if (plagiarismCheck.ReviewerFlagged)
+                    {
+                        <span class="badge bg-dark ms-1">Reviewer tarafından işaretlendi</span>
+                    }
+
+                    
+                        List<APDS.Models.Services.PlagiarismFoundSource>? sources = string.IsNullOrEmpty(plagiarismCheck.FoundSourcesJson)
+                            ? new List<APDS.Models.Services.PlagiarismFoundSource>()
+                            : Newtonsoft.Json.JsonConvert.DeserializeObject<List<APDS.Models.Services.PlagiarismFoundSource>>(plagiarismCheck.FoundSourcesJson);
+                    
+
+                    @if (sources != null && sources.Any())
+                    {
+                        <ul class="list-unstyled mt-3 mb-3">
+                            @foreach (var source in sources)
+                            {
+                                var safeSourceUrl = APDS.Models.Services.UrlSafety.IsHttpUrl(source.Url) ? source.Url : "#";
+                                <li class="mb-1">
+                                    <a href="@safeSourceUrl" target="_blank" rel="noopener noreferrer">@(source.Title ?? source.Url)</a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted mt-3 mb-3">Benzer kaynak bulunamadı.</p>
+                    }
+
+                    @if (!plagiarismCheck.ReviewerFlagged)
+                    {
+                        <form asp-controller="Review" asp-action="FlagPlagiarism" method="post" onsubmit="return confirm('Bu faaliyeti kopya olarak işaretlemek istediğinize emin misiniz? Admin bilgilendirilecek.');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="activityId" value="@Model.Id" />
+                            <input type="hidden" name="plagiarismCheckId" value="@plagiarismCheck.Id" />
+                            <button type="submit" class="btn btn-outline-danger btn-sm">Kopya Olarak İşaretle</button>
+                        </form>
+                    }
+                    break;
+            }
+        </div>
+    </div>
+}
         </div>
     </div>
 

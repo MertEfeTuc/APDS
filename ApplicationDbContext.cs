@@ -5,7 +5,7 @@ using APDS.Models;
 public class ApplicationDbContext : IdentityDbContext<User>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
-
+public DbSet<PlagiarismCheck> PlagiarismChecks { get; set; }
     public DbSet<Activity> Activities { get; set; }
     public DbSet<ActivityType> ActivityTypes { get; set; }
     public DbSet<Review> Reviews { get; set; }
@@ -17,10 +17,23 @@ public class ApplicationDbContext : IdentityDbContext<User>
     public DbSet<ActivityVersion> ActivityVersions { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<ActivityAttachment> ActivityAttachments { get; set; }
+    public DbSet<NewsSource> NewsSources { get; set; }
+    public DbSet<NewsItem> NewsItems { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);   // Identity tablolarının kurulumu için zorunlu, bunu silme
+builder.Entity<PlagiarismCheck>()
+    .HasOne(pc => pc.Activity)
+    .WithMany()
+    .HasForeignKey(pc => pc.ActivityId)
+    .OnDelete(DeleteBehavior.Cascade);
 
+builder.Entity<PlagiarismCheck>()
+    .HasIndex(pc => pc.ActivityId);
+
+builder.Entity<PlagiarismCheck>()
+    .Property(pc => pc.FoundSourcesJson)
+    .HasColumnType("jsonb");
         builder.Entity<ReviewerAssignment>()
             .HasIndex(ra => ra.AcademicianId)
             .IsUnique();   // bir akademisyene yalnızca bir kayıt
@@ -75,6 +88,16 @@ public class ApplicationDbContext : IdentityDbContext<User>
             .WithMany()
             .HasForeignKey(a => a.UploadedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<NewsItem>()
+            .HasOne(ni => ni.NewsSource)
+            .WithMany()
+            .HasForeignKey(ni => ni.NewsSourceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<NewsItem>()
+            .HasIndex(ni => ni.Link)
+            .IsUnique();
+
         builder.Entity<Activity>()
     .HasOne(a => a.DelegatedReviewer)
     .WithMany()

@@ -1,0 +1,80 @@
+@{
+    var plagiarismCheck = ViewBag.PlagiarismCheck as APDS.Models.PlagiarismCheck;
+    var foundSources = ViewBag.PlagiarismFoundSources as List<APDS.Models.Services.PlagiarismFoundSource>;
+}
+
+<div class="card mb-4">
+    <div class="card-header">İntihal Kontrolü</div>
+    <div class="card-body">
+        @if (plagiarismCheck == null)
+        {
+            <p class="text-muted mb-0">Bu faaliyet için henüz bir kontrol kaydı oluşturulmamış.</p>
+        }
+        else if (plagiarismCheck.Status == APDS.Models.PlagiarismCheckStatus.Pending
+               || plagiarismCheck.Status == APDS.Models.PlagiarismCheckStatus.Running)
+        {
+            <div class="d-flex align-items-center gap-2">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                <span class="text-muted">Kontrol devam ediyor, sonuç birazdan burada görünecek.</span>
+            </div>
+        }
+        else if (plagiarismCheck.Status == APDS.Models.PlagiarismCheckStatus.Failed)
+        {
+            <div class="alert alert-warning mb-0">
+                Kontrol tamamlanamadı: @(plagiarismCheck.ErrorMessage ?? "bilinmeyen hata").
+            </div>
+        }
+        else if (plagiarismCheck.Status == APDS.Models.PlagiarismCheckStatus.Completed)
+        {
+            var score = plagiarismCheck.SimilarityScore ?? 0;
+            var scorePercent = (score * 100).ToString("0");
+            var badgeClass = score >= 0.7 ? "bg-danger" : score >= 0.4 ? "bg-warning text-dark" : "bg-success";
+
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fw-bold">Benzerlik Skoru:</span>
+                <span class="badge @badgeClass">%@scorePercent</span>
+                @if (plagiarismCheck.ReviewerFlagged)
+                {
+                    <span class="badge bg-danger">İntihal olarak işaretlendi</span>
+                }
+            </div>
+
+            @if (foundSources != null && foundSources.Any())
+            {
+                <p class="fw-bold mb-1">Bulunan Kaynaklar:</p>
+                <ul class="mb-3">
+                    @foreach (var source in foundSources)
+                    {
+                        <li>
+                            @if (!string.IsNullOrEmpty(source.Url))
+                            {
+                                <a href="@source.Url" target="_blank" rel="noopener noreferrer">@(source.Title ?? source.Url)</a>
+                            }
+                            else
+                            {
+                                @(source.Title ?? "İsimsiz kaynak")
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted">Belirgin bir kaynak bulunamadı.</p>
+            }
+
+            @if (!plagiarismCheck.ReviewerFlagged)
+            {
+                <form asp-controller="Review" asp-action="FlagPlagiarism" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="activityId" value="@Model.Id" />
+                    <input type="hidden" name="plagiarismCheckId" value="@plagiarismCheck.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Bu faaliyeti intihal şüphesiyle işaretlemek istediğinize emin misiniz? Admin bilgilendirilecek.');">
+                        İntihal Olarak İşaretle
+                    </button>
+                </form>
+            }
+        }
+    </div>
+</div>

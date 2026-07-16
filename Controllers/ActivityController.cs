@@ -3,23 +3,31 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using APDS.Models;
+using APDS.Services;
+using Microsoft.Extensions.Options;
+using APDS.Models.Services;
+using APDS.Services.PlagiarismCheck;
 
 namespace APDS.Controllers
 {
     [Authorize(Roles = "Akademisyen")]
     public class ActivityController : Controller
     {
+        private readonly FileStorageSettings _fileStorageSettings;
+        private readonly IPdfExtractionService _pdfExtractionService;
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly APDS.Services.AuditLogService _auditLog;
         private readonly APDS.Services.Notifications.INotificationPublisher _notificationPublisher;
         private readonly APDS.Services.FileStorageSettings _fileStorage;
         private readonly IWebHostEnvironment _env;
+        private readonly PlagiarismCheckQueue _plagiarismQueue;
 
        public ActivityController(ApplicationDbContext context, UserManager<User> userManager,
     APDS.Services.AuditLogService auditLog, APDS.Services.Notifications.INotificationPublisher notificationPublisher,
     Microsoft.Extensions.Options.IOptions<APDS.Services.FileStorageSettings> fileStorageOptions,
-    IWebHostEnvironment env)
+    IWebHostEnvironment env, IOptions<FileStorageSettings> fileStorageSettings,   // IOptions<T> pattern kullanılıyorsa
+    IPdfExtractionService pdfExtractionService,PlagiarismCheckQueue plagiarismQueue)
 {
     _context = context;
     _userManager = userManager;
@@ -27,25 +35,41 @@ namespace APDS.Controllers
     _notificationPublisher = notificationPublisher;
     _fileStorage = fileStorageOptions.Value;
     _env = env;
+    _fileStorageSettings = fileStorageSettings.Value;
+    _pdfExtractionService = pdfExtractionService;
+    _plagiarismQueue = plagiarismQueue;
 }
 
         [HttpGet]
-        public async Task<IActionResult> Create()
+public async Task<IActionResult> Create()
+{
+    var user = await _userManager.GetUserAsync(User);
+
+    var currentTotal = await _context.Activities
+        .Include(a => a.ActivityType)
+        .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+        .SumAsync(a => a.ActivityType.Score);
+
+    ViewBag.CurrentTotal = currentTotal;
+    var model = new ActivityCreateViewModel
+    {
+        AllActivityTypes = await _context.ActivityTypes.ToListAsync()
+    };
+
+    if (TempData["ImportedTitle"] != null)
+    {
+        model.Title = TempData["ImportedTitle"] as string;
+        model.JournalName = TempData["ImportedJournal"] as string;
+        model.Description = TempData["ImportedDescription"] as string;
+
+        if (TempData["ImportedActivityDate"] is string dateStr && DateOnly.TryParse(dateStr, out var parsedDate))
         {
-            var user = await _userManager.GetUserAsync(User);
-
-            var currentTotal = await _context.Activities
-                .Include(a => a.ActivityType)
-                .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
-                .SumAsync(a => a.ActivityType.Score);
-
-            ViewBag.CurrentTotal = currentTotal;
-            var model = new ActivityCreateViewModel
-            {
-                AllActivityTypes = await _context.ActivityTypes.ToListAsync()
-            };
-            return View(model);
+            model.ActivityDate = parsedDate;
         }
+    }
+
+    return View(model);
+}
 [HttpGet]
 public async Task<IActionResult> CopyFromActivity(int id)
 {
@@ -66,27 +90,37 @@ public async Task<IActionResult> CopyFromActivity(int id)
 
     return View("Create", model);
 }
-        [HttpPost]
+[HttpPost]
 [ValidateAntiForgeryToken]
 [RequestSizeLimit(50 * 1024 * 1024)] // toplamda makul bir üst sınır, her dosya kendi içinde 10 MB ile sınırlı
 public async Task<IActionResult> Create(ActivityCreateViewModel model, string submitType, List<IFormFile> files)
 {
+    var user = await _userManager.GetUserAsync(User); // ViewBag.CurrentTotal hesaplamak için öne alındı
+
     if (!ModelState.IsValid)
     {
         model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+        ViewBag.CurrentTotal = await _context.Activities
+            .Include(a => a.ActivityType)
+            .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+            .SumAsync(a => a.ActivityType.Score);
         return View(model);
     }
     var duplicate = await FindDuplicateAsync(model.Title, model.ActivityTypeId, null);
-if (duplicate != null)
-{
-    ModelState.AddModelError(string.Empty,
-        $"Bu başlık ve türde zaten bir faaliyet kayıtlı (ID: {duplicate.Id}). Mükerrer kayıt oluşturulamaz.");
-    model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
-    return View(model);
-}
-    var user = await _userManager.GetUserAsync(User);
+    if (duplicate != null)
+    {
+        ModelState.AddModelError(string.Empty,
+            $"Bu başlık ve türde zaten bir faaliyet kayıtlı (ID: {duplicate.Id}). Mükerrer kayıt oluşturulamaz.");
+        model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+        ViewBag.CurrentTotal = await _context.Activities
+            .Include(a => a.ActivityType)
+            .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+            .SumAsync(a => a.ActivityType.Score);
+        return View(model);
+    }
 
     Activity activity;
+    bool isNewSubmission = submitType == "submit"; // aşağıda plagiarism check tetiklemek için ayrıca lazım
     if (model.Id.HasValue && model.Id.Value > 0)
     {
         activity = await _context.Activities.FirstOrDefaultAsync(a => a.Id == model.Id.Value && a.AcademicianId == user.Id);
@@ -98,7 +132,7 @@ if (duplicate != null)
         _context.Activities.Add(activity);
     }
 
-     activity.Title = model.Title;
+    activity.Title = model.Title;
     activity.Description = model.Description;
     activity.ActivityDate = model.ActivityDate;
     activity.ActivityTypeId = model.ActivityTypeId;
@@ -109,59 +143,76 @@ if (duplicate != null)
         activity.OverdueNotificationSent = false;
     }
 
-    
     if (!ModelState.IsValid)
     {
         model.AllActivityTypes = await _context.ActivityTypes.ToListAsync();
+        ViewBag.CurrentTotal = await _context.Activities
+            .Include(a => a.ActivityType)
+            .Where(a => a.AcademicianId == user.Id && a.Status == ActivityStatus.APPROVED)
+            .SumAsync(a => a.ActivityType.Score);
         return View(model);
     }
 
-
-    
-
-// ---- Dosya yükleme (varsa) ----
-if (files != null && files.Any())
-{
-    var folder = GetActivityFolder(activity.Id);
-
-    foreach (var file in files)
+    // ---- Dosya yükleme (varsa) ----
+    if (files != null && files.Any())
     {
-        if (file.Length == 0) continue;
+        var folder = GetActivityFolder(activity.Id);
 
-        if (file.Length > _fileStorage.MaxFileSizeBytes)
+        foreach (var file in files)
         {
-            TempData["Error"] = $"\"{file.FileName}\" dosyası {_fileStorage.MaxFileSizeBytes / 1024 / 1024} MB sınırını aşıyor, yüklenmedi.";
-            continue;
+            if (file.Length == 0) continue;
+
+            if (file.Length > _fileStorage.MaxFileSizeBytes)
+            {
+                TempData["Error"] = $"\"{file.FileName}\" dosyası {_fileStorage.MaxFileSizeBytes / 1024 / 1024} MB sınırını aşıyor, yüklenmedi.";
+                continue;
+            }
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!_fileStorage.AllowedExtensions.Contains(ext))
+            {
+                TempData["Error"] = $"\"{file.FileName}\" türüne izin verilmiyor, yüklenmedi.";
+                continue;
+            }
+
+            var storedFileName = $"{Guid.NewGuid()}{ext}";
+            var fullPath = Path.Combine(folder, storedFileName);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            _context.ActivityAttachments.Add(new ActivityAttachment
+            {
+                ActivityId = activity.Id,
+                OriginalFileName = file.FileName,
+                StoredFileName = storedFileName,
+                ContentType = file.ContentType,
+                FileSizeBytes = file.Length,
+                UploadedByUserId = user.Id
+            });
         }
+    }
 
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!_fileStorage.AllowedExtensions.Contains(ext))
+    // DÜZELTME: önceden bu satır yalnızca "if (files != null && files.Any())" bloğunun içindeydi,
+    // yani dosyasız submit/draft senaryosunda activity hiç DB'ye yazılmıyordu. Artık koşulsuz.
+    await _context.SaveChangesAsync();
+
+    // ---- Plagiarism check tetikleme (yalnızca gerçek submit'te, draft'ta değil) ----
+    if (isNewSubmission)
+    {
+        var check = new PlagiarismCheck { ActivityId = activity.Id };
+        _context.PlagiarismChecks.Add(check);
+        await _context.SaveChangesAsync(); // check.Id burada dolar
+
+        await _plagiarismQueue.EnqueueAsync(new PlagiarismCheckJob
         {
-            TempData["Error"] = $"\"{file.FileName}\" türüne izin verilmiyor, yüklenmedi.";
-            continue;
-        }
-
-        var storedFileName = $"{Guid.NewGuid()}{ext}";
-        var fullPath = Path.Combine(folder, storedFileName);
-
-        using (var stream = new FileStream(fullPath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        _context.ActivityAttachments.Add(new ActivityAttachment
-        {
-            ActivityId = activity.Id,
-            OriginalFileName = file.FileName,
-            StoredFileName = storedFileName,
-            ContentType = file.ContentType,
-            FileSizeBytes = file.Length,
-            UploadedByUserId = user.Id
+            PlagiarismCheckId = check.Id,
+            ActivityId = activity.Id
         });
     }
-    await _context.SaveChangesAsync();
-    
-}
+
     await _auditLog.LogAsync("Activity", activity.Id.ToString(), "CREATE", user.UserName);
     return RedirectToAction("Index");
 }
@@ -524,6 +575,26 @@ public async Task<IActionResult> UploadAttachment(int activityId, IFormFile file
 
     return RedirectToAction("Details", new { id = activityId });
 }
+[HttpPost]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> ExtractFromPdf(IFormFile file)
+{
+    // FileStorageSettings'teki aynı kısıtlar: 10MB, sadece .pdf
+    if (file.Length > _fileStorageSettings.MaxFileSizeBytes)
+        return BadRequest("Dosya boyutu sınırı aşıldı");
+
+    using var ms = new MemoryStream();
+    await file.CopyToAsync(ms);
+    if (file == null || file.Length == 0)
+    return BadRequest("Dosya bulunamadı");
+
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    if (ext != ".pdf")
+        return BadRequest("Sadece PDF dosyaları kabul edilir");
+    var result = await _pdfExtractionService.ExtractFromPdfAsync(ms.ToArray(), file.FileName);
+
+    return Json(result); // camelCase serializer ayarına dikkat
+}
 
 [HttpGet]
 [Authorize(Roles = "Akademisyen,Reviewer")]
@@ -542,7 +613,27 @@ public async Task<IActionResult> DownloadAttachment(int id)
     var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
     return File(bytes, attachment.ContentType, attachment.OriginalFileName);
 }
+[HttpGet]
+public IActionResult ImportFromPdf()
+{
+    return View();
+}
 
+[HttpPost]
+[ValidateAntiForgeryToken]
+public IActionResult ConfirmImport(string? title, string? journal, string? doi, string? authors, string? publicationDate)
+{
+    TempData["ImportedTitle"] = title;
+    TempData["ImportedJournal"] = journal;
+    TempData["ImportedActivityDate"] = publicationDate;
+
+    var descParts = new List<string>();
+    if (!string.IsNullOrWhiteSpace(authors)) descParts.Add($"Yazarlar: {authors}");
+    if (!string.IsNullOrWhiteSpace(doi)) descParts.Add($"DOI: {doi}");
+    TempData["ImportedDescription"] = string.Join("\n", descParts);
+
+    return RedirectToAction("Create");
+}
 [HttpPost]
 [Authorize(Roles = "Akademisyen")]
 [ValidateAntiForgeryToken]

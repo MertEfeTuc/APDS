@@ -115,19 +115,17 @@ public async Task<IActionResult> SyncFromOrcid()
         TempData["Error"] = "Senkronizasyon için önce profilinize ORCID ID eklemelisiniz.";
         return RedirectToAction("Edit");
     }
-List<APDS.Services.OrcidWorkDto> works1;
+List<APDS.Services.OrcidWorkDto> works;
     try
     {
-        works1 = await _orcidService.GetWorksAsync(user.OrcidId);
+        works = await _orcidService.GetWorksAsync(user.OrcidId);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-        TempData["Error"] = $"ORCID hata: {ex.Message}";
+        TempData["Error"] = "ORCID senkronizasyonu başarısız oldu.";
         return RedirectToAction("Index");
     }
 
-    var works = await _orcidService.GetWorksAsync(user.OrcidId);
-    TempData["Error"] = $"DEBUG: OrcidId={user.OrcidId}, WorksCount={works.Count}";
     var metrics = await _semanticScholarService.GetAuthorMetricsAsync(user.OrcidId);
 
     var importType = await _context.ActivityTypes.FirstOrDefaultAsync(t => t.Name == "Otomatik İçe Aktarılan Yayın");

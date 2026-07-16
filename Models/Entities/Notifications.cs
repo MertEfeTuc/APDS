@@ -9,7 +9,8 @@ namespace APDS.Models
         REMINDER,
         DELEGATION_REQUEST,  
         DELEGATION_ACCEPTED, 
-        DELEGATION_REJECTED   
+        DELEGATION_REJECTED,
+        PLAGIARISM_DETECTED   
     }
 
     public class Notification

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using APDS.Models;
 using APDS.Events;
+using APDS.Services;
 
 [Authorize(Roles = "Reviewer")]
 public class ReviewController : Controller
@@ -13,14 +14,18 @@ public class ReviewController : Controller
     private readonly APDS.Services.AuditLogService _auditLog;
     private readonly APDS.Services.Notifications.INotificationPublisher _notificationPublisher;
 
-    public ReviewController(ApplicationDbContext context, UserManager<User> userManager,
-        APDS.Services.AuditLogService auditLog, APDS.Services.Notifications.INotificationPublisher notificationPublisher)
-    {
-        _context = context;
-        _userManager = userManager;
-        _auditLog = auditLog;
-        _notificationPublisher = notificationPublisher;
-    }
+    private readonly APDS.Services.PlagiarismCheck.PlagiarismCheckQueue _plagiarismCheckQueue;
+
+public ReviewController(ApplicationDbContext context, UserManager<User> userManager,
+    APDS.Services.AuditLogService auditLog, APDS.Services.Notifications.INotificationPublisher notificationPublisher,
+    APDS.Services.PlagiarismCheck.PlagiarismCheckQueue plagiarismCheckQueue)
+{
+    _context = context;
+    _userManager = userManager;
+    _auditLog = auditLog;
+    _notificationPublisher = notificationPublisher;
+    _plagiarismCheckQueue = plagiarismCheckQueue;
+}
 
    public async Task<IActionResult> AcademicianActivities(string academicianId)
 {
@@ -53,7 +58,7 @@ public class ReviewController : Controller
 
     return View(vm);
 }
-   public async Task<IActionResult> ReviewActivity(int id)
+public async Task<IActionResult> ReviewActivity(int id)
 {
     var user = await _userManager.GetUserAsync(User);
 
@@ -82,7 +87,95 @@ public class ReviewController : Controller
         .FirstOrDefaultAsync(r => r.ActivityId == id && r.ReviewerId == user.Id);
 
     ViewBag.ExistingReview = existingReview;
+
+    // --- YENİ EKLENEN KISIM ---
+    var plagiarismCheck = await _context.PlagiarismChecks
+        .Where(p => p.ActivityId == id)
+        .OrderByDescending(p => p.CreatedDate)
+        .FirstOrDefaultAsync();
+
+    ViewBag.PlagiarismCheck = plagiarismCheck;
+    // --- YENİ EKLENEN KISIM SONU ---
+
     return View(activity);
+}
+[HttpPost]
+[ValidateAntiForgeryToken]
+[Authorize(Roles = "Reviewer")]
+public async Task<IActionResult> RetryPlagiarismCheck(int activityId, int plagiarismCheckId)
+{
+    var user = await _userManager.GetUserAsync(User);
+
+    var activity = await _context.Activities.FindAsync(activityId);
+    if (activity == null) return NotFound();
+
+    bool isAssigned = await _context.ReviewerAssignments
+        .AnyAsync(ra => ra.AcademicianId == activity.AcademicianId && ra.ReviewerId == user.Id)
+        && activity.DelegatedReviewerId == null;
+    bool isDelegated = activity.DelegatedReviewerId == user.Id;
+    if (!isAssigned && !isDelegated) return Forbid();
+
+    var check = await _context.PlagiarismChecks
+        .FirstOrDefaultAsync(p => p.Id == plagiarismCheckId && p.ActivityId == activityId);
+    if (check == null) return NotFound();
+
+    check.Status = PlagiarismCheckStatus.Pending;
+    check.ErrorMessage = null;
+    check.SimilarityScore = null;
+    check.FoundSourcesJson = null;
+    check.CheckedDate = null;
+    await _context.SaveChangesAsync();
+
+    await _plagiarismCheckQueue.EnqueueAsync(new APDS.Services.PlagiarismCheck.PlagiarismCheckJob
+    {
+        PlagiarismCheckId = check.Id,
+        ActivityId = activity.Id
+    });
+
+    await _auditLog.LogAsync("PlagiarismCheck", check.Id.ToString(), "RETRY", user.UserName);
+
+    TempData["Success"] = "Kopya kontrolü yeniden başlatıldı.";
+    return RedirectToAction(nameof(ReviewActivity), new { id = activityId });
+}
+// ---- Reviewer'ın manuel olarak "kopya" işaretlemesi ----
+[HttpPost]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> FlagPlagiarism(int activityId, int plagiarismCheckId)
+{
+    var user = await _userManager.GetUserAsync(User);
+
+    var activity = await _context.Activities.FirstOrDefaultAsync(a => a.Id == activityId);
+    if (activity == null) return NotFound();
+
+    bool isAssigned = await _context.ReviewerAssignments
+        .AnyAsync(ra => ra.AcademicianId == activity.AcademicianId && ra.ReviewerId == user.Id)
+        && activity.DelegatedReviewerId == null;
+    bool isDelegated = activity.DelegatedReviewerId == user.Id;
+    if (!isAssigned && !isDelegated) return Forbid();
+
+    var check = await _context.PlagiarismChecks
+        .FirstOrDefaultAsync(pc => pc.Id == plagiarismCheckId && pc.ActivityId == activityId);
+    if (check == null) return NotFound();
+
+    check.ReviewerFlagged = true;
+    await _context.SaveChangesAsync();
+
+    await _auditLog.LogAsync(nameof(Activity), activity.Id.ToString(), "PLAGIARISM_FLAGGED", user.UserName);
+
+    // ROL ADI VARSAYIMI: "Admin" - PlagiarismCheckProcessor'daki ile aynı varsayım.
+    var admins = await _userManager.GetUsersInRoleAsync("Admin");
+    foreach (var admin in admins)
+    {
+        await _notificationPublisher.PublishAsync(new ActivityStatusChangedEvent(
+            RecipientUserId: admin.Id,
+            Type: NotificationType.PLAGIARISM_DETECTED,
+            Message: $"Reviewer, \"{activity.Title}\" başlıklı aktiviteyi intihal olarak işaretledi.",
+            RelatedEntityId: activity.Id
+        ));
+    }
+
+    TempData["Success"] = "Aktivite intihal şüphesiyle işaretlendi, Admin bilgilendirildi.";
+    return RedirectToAction(nameof(ReviewActivity), new { id = activityId });
 }
 
     [HttpPost]

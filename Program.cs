@@ -4,18 +4,27 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using APDS.Services.Notifications;
 using APDS.Services;
+using APDS.Models.Services;
+using APDS.Services.PlagiarismCheck;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- SERVİSLER (hepsi Build()'den ÖNCE) ----
 builder.Services.AddScoped<APDS.Services.AuditLogService>();
-
-builder.Services.AddControllersWithViews();
-
+builder.Services.AddHttpClient<IPdfExtractionService, PdfExtractionService>();
+builder.Services.Configure<FileStorageSettings>(builder.Configuration.GetSection("FileStorageSettings"));
+builder.Services.AddControllersWithViews().AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHttpClient<APDS.Services.IOrcidService, APDS.Services.OrcidService>();
+builder.Services.AddHttpClient<IPlagiarismCheckService, PlagiarismCheckService>();
 builder.Services.AddHttpClient<APDS.Services.ISemanticScholarService, APDS.Services.SemanticScholarService>();
+builder.Services.AddSingleton<PlagiarismCheckQueue>();
+builder.Services.AddHttpClient<IPlagiarismCheckService, PlagiarismCheckService>();
+builder.Services.AddHostedService<PlagiarismCheckProcessor>();  // ✅ processor burada
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -44,6 +53,9 @@ builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<DailyDigestService>();
 builder.Services.AddHostedService<OverdueCheckService>();
 builder.Services.AddHostedService<NotificationProcessor>();
+builder.Services.AddHttpClient<INewsFetcher, RssNewsFetcher>();
+builder.Services.AddHttpClient<INewsFetcher, GroundingNewsFetcher>();
+builder.Services.AddHostedService<NewsFetchService>();
 
 
 var app = builder.Build();
@@ -125,6 +137,24 @@ if (!dbContext.ActivityTypes.Any(t => t.Name == "Otomatik İçe Aktarılan Yayı
     dbContext.ActivityTypes.Add(
         new APDS.Models.ActivityType { Category = "Yayınlar", Name = "Otomatik İçe Aktarılan Yayın", Score = 10 }
     );
+    await dbContext.SaveChangesAsync();
+}
+
+// ---- NEWS SOURCE SEED ----
+var newsSourceSeeds = new[]
+{
+    new APDS.Models.NewsSource { Name = "TÜBİTAK Akademik Dergiler", Url = "https://journals.tubitak.gov.tr/recent.rss", FetchMethod = APDS.Models.NewsFetchMethod.Rss, IsActive = true },
+    new APDS.Models.NewsSource { Name = "Evrim Ağacı - Eğitim Bilimleri", Url = "https://evrimagaci.org/kategori/egitim-bilimleri-445/rss.xml", FetchMethod = APDS.Models.NewsFetchMethod.Rss, IsActive = true },
+    // RSS'i olmayan/çalışmayan kaynaklar - Grounding (Gemini + Google Search) ile besleniyor
+    new APDS.Models.NewsSource { Name = "YÖK (Yükseköğretim Kurulu)", Url = "YÖK (Yükseköğretim Kurulu) güncel duyuruları, yönetmelik değişiklikleri ve kararları", FetchMethod = APDS.Models.NewsFetchMethod.Grounding, IsActive = true },
+    new APDS.Models.NewsSource { Name = "Horizon Europe / CORDIS", Url = "Horizon Europe ve CORDIS güncel çağrı, proje ve araştırma-inovasyon haberleri", FetchMethod = APDS.Models.NewsFetchMethod.Grounding, IsActive = true },
+};
+
+var existingNewsSourceNames = dbContext.NewsSources.Select(s => s.Name).ToHashSet();
+var missingNewsSourceSeeds = newsSourceSeeds.Where(s => !existingNewsSourceNames.Contains(s.Name)).ToList();
+if (missingNewsSourceSeeds.Any())
+{
+    dbContext.NewsSources.AddRange(missingNewsSourceSeeds);
     await dbContext.SaveChangesAsync();
 }
 }

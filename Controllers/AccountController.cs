@@ -33,6 +33,11 @@ namespace APDS.Controllers
 [ValidateAntiForgeryToken]
 public async Task<IActionResult> Register(RegisterViewModel model)
 {
+    if (model.SelectedRole != "Akademisyen" && model.SelectedRole != "Reviewer")
+    {
+        ModelState.AddModelError(nameof(model.SelectedRole), "Geçersiz hesap türü.");
+    }
+
     if (model.SelectedRole == "Akademisyen" && model.DepartmentId == null)
     {
         ModelState.AddModelError(nameof(model.DepartmentId), "Akademisyenler için bölüm seçimi zorunludur.");

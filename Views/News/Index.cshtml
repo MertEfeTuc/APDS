@@ -1,0 +1,31 @@
+@model List<APDS.Models.NewsItem>
+@{
+    ViewData["Title"] = "Haberler";
+}
+
+<h2 class="mb-4">Haberler</h2>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Henüz haber bulunmuyor.</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var item in Model)
+        {
+            var safeLink = APDS.Models.Services.UrlSafety.IsHttpUrl(item.Link) ? item.Link : "#";
+            <a href="@safeLink" target="_blank" rel="noopener noreferrer" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">@item.Title</h5>
+                    <small class="text-muted">@(item.PublishedDate?.ToString("dd.MM.yyyy") ?? item.FetchedDate.ToString("dd.MM.yyyy"))</small>
+                </div>
+                @if (!string.IsNullOrEmpty(item.Summary))
+                {
+                    <p class="mb-1 text-muted">@item.Summary</p>
+                }
+                <small class="text-secondary">@item.NewsSource?.Name</small>
+            </a>
+        }
+    </div>
+}

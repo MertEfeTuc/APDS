@@ -42,26 +42,19 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-controller="Comparison" asp-action="DepartmentFacultyComparison">Bölüm/Fakülte Karşılaştırması</a>
                         </li>
-                    }
-                    @if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer") || User.IsInRole("Admin"))
-                    {
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Leaderboard" asp-action="Index">Sıralama</a>
-                        </li>
-                    }
-                    @if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer") || User.IsInRole("Admin"))
-                    {
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-controller="ActivityTypeReference" asp-action="Index">Faaliyet Türleri</a>
                         </li>
-                    }@if (User.IsInRole("Akademisyen") || User.IsInRole("Reviewer"))
-                    {
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Calendar" asp-action="Index">Takvim</a>
+                            <a class="nav-link text-dark" asp-controller="Leaderboard" asp-action="Index">Sıralama</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="News" asp-action="Index">Haberler</a>
                         </li>
                     }
                     @if (User.IsInRole("Reviewer"))
                     {
+                        
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-controller="Home" asp-action="ReviewerStatistics">Reviewer İstatistikleri</a>
                         </li>
@@ -69,12 +62,19 @@
                     @if (User.IsInRole("Akademisyen"))
                     {
                         <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Calendar" asp-action="Index">Takvim</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link text-dark" asp-controller="Activity" asp-action="Performance">Performansım</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Activity" asp-action="ImportFromPdf">PDF'den İçe Aktar</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-controller="Profile" asp-action="Index">Profilim</a>
                         </li>
-                    }
+                        
+                    }   
                     <a class="nav-link" asp-controller="Security" asp-action="Index">Güvenlik Ayarları</a>
                         @await Component.InvokeAsync("NotificationDropdown")
                     </ul>

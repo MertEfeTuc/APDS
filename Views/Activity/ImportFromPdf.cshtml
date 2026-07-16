@@ -1,0 +1,122 @@
+@{
+    ViewData["Title"] = "PDF'den İçe Aktar";
+}
+@Html.AntiForgeryToken()
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <h2 class="mb-4">PDF'den İçe Aktar</h2>
+
+        <div class="mb-3">
+            <label class="form-label">Akademik Makale (PDF)</label>
+            <input type="file" id="pdfFile" accept=".pdf" class="form-control" />
+        </div>
+
+        <button id="extractBtn" class="btn btn-primary" type="button">Analiz Et</button>
+
+        <div id="loadingBox" class="mt-3 text-muted" style="display:none;">Analiz ediliyor, lütfen bekleyin...</div>
+        <div id="errorBox" class="alert alert-danger mt-3" style="display:none;"></div>
+
+        <div id="previewBox" class="mt-4" style="display:none;">
+            <h5>Önizleme</h5>
+            <p class="text-muted small">Alanları kontrol edip gerekirse düzeltin, ardından onaylayın.</p>
+
+            <form asp-controller="Activity" asp-action="ConfirmImport" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-2">
+                    <label class="form-label">Başlık <span id="conf-title" class="badge"></span></label>
+                    <input type="text" name="title" id="field-title" class="form-control" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Dergi <span id="conf-journal" class="badge"></span></label>
+                    <input type="text" name="journal" id="field-journal" class="form-control" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Yazarlar <span id="conf-authors" class="badge"></span></label>
+                    <input type="text" name="authors" id="field-authors" class="form-control" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">DOI <span id="conf-doi" class="badge"></span></label>
+                    <input type="text" name="doi" id="field-doi" class="form-control" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Yayın Tarihi <span id="conf-date" class="badge"></span></label>
+                    <input type="date" name="publicationDate" id="field-date" class="form-control" />
+                </div>
+
+                <button type="submit" class="btn btn-success">Onayla ve Devam Et</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const extractBtn = document.getElementById('extractBtn');
+    const pdfFile = document.getElementById('pdfFile');
+    const loadingBox = document.getElementById('loadingBox');
+    const errorBox = document.getElementById('errorBox');
+    const previewBox = document.getElementById('previewBox');
+
+    function confidenceBadge(level) {
+        const map = { high: 'bg-success', medium: 'bg-warning text-dark', low: 'bg-danger' };
+        const cls = map[level] || 'bg-secondary';
+        return `<span class="badge ${cls}">${level ?? '?'}</span>`;
+    }
+
+    extractBtn.addEventListener('click', async () => {
+        errorBox.style.display = 'none';
+        previewBox.style.display = 'none';
+
+        if (!pdfFile.files.length) {
+            errorBox.textContent = 'Lütfen bir PDF dosyası seçin';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('file', pdfFile.files[0]);
+        fd.append('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]').value);
+
+        loadingBox.style.display = 'block';
+        extractBtn.disabled = true;
+
+        try {
+            const res = await fetch('/Activity/ExtractFromPdf', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (!res.ok || data.success === false) {
+                errorBox.textContent = data.errorMessage || 'Analiz sırasında bir hata oluştu';
+                errorBox.style.display = 'block';
+                return;
+            }
+
+            document.getElementById('field-title').value = data.title ?? '';
+            document.getElementById('field-journal').value = data.journal ?? '';
+            document.getElementById('field-authors').value = (data.authors ?? []).join(', ');
+            document.getElementById('field-doi').value = data.doi ?? '';
+            document.getElementById('field-date').value = data.publicationDate ?? '';
+
+            const conf = data.confidence ?? {};
+            document.getElementById('conf-title').innerHTML = confidenceBadge(conf.title);
+            document.getElementById('conf-journal').innerHTML = confidenceBadge(conf.journal);
+            document.getElementById('conf-authors').innerHTML = confidenceBadge(conf.authors);
+            document.getElementById('conf-doi').innerHTML = confidenceBadge(conf.doi);
+            document.getElementById('conf-date').innerHTML = confidenceBadge(conf.publicationDate);
+
+            previewBox.style.display = 'block';
+        } catch (err) {
+            errorBox.textContent = 'Sunucuya bağlanılamadı';
+            errorBox.style.display = 'block';
+        } finally {
+            loadingBox.style.display = 'none';
+            extractBtn.disabled = false;
+        }
+    });
+</script>
+}
